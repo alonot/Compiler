@@ -1,0 +1,7 @@
+**/*.yy.c
+**/*.tab.c
+**/*.tab.h
+**/*.y.swp
+**/*.l.swp
+**/calculator.out
+**/test**
