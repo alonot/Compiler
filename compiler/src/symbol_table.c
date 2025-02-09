@@ -1,4 +1,4 @@
-#include "includes.h"
+#include "../include/includes.h"
 
 /**
  * Inits the struct with one global symbol table
@@ -30,22 +30,22 @@ int remove_local_symbol_table(SymbolTables* symtables) {
  * returns value of the variable, searching from local-most symbol table all way to the global symbol table
  * return INT_MIN if not present in ANY;
  */
-char* value_Of(SymbolTables* symtables, char* variable) {
-    char* value = (char*)INT_MIN;
+lli value_Of(SymbolTables* symtables, lli variable) {
+    lli value = (lli)INT_MIN;
     int pos = symtables->no_local_tables - 1;
-    while (pos >= 0 && (value = get(symtables->local_tables[pos --], variable)) == (char*)INT_MIN);
+    while (pos >= 0 && (value = get(symtables->local_tables[pos --], variable)) == (lli)INT_MIN);
     return value;
 }
-char** keys_at(SymbolTables* symt);
+lli* keys_at(SymbolTables* symt);
 /**
  * Upserts a variable and its value to the local-most symbol table if present else to the gloabl symbol table
  */
-int upsert_to(SymbolTables* symt, char* key,char* value) {
+int upsert_to(SymbolTables* symt, lli key,lli value) {
     // printf("..%d\n", len_at(symt));
     return upsert(symt->local_tables[symt->no_local_tables - 1], key, value);
 }
 
-char** keys_at(SymbolTables* symt) {
+lli* keys_at(SymbolTables* symt) {
     return keys(symt->local_tables[symt->no_local_tables - 1]);
 }
 
