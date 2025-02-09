@@ -1,0 +1,10 @@
+decl
+	integer a, b;
+enddecl
+
+begin   
+  read(a);
+  read(b);  
+  write(a, b, a + b);
+  write(a - b, a * b, a / b);
+end

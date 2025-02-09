@@ -5,3 +5,4 @@
 **/*.l.swp
 **/calculator.out
 **/test**
+.vscode/**
