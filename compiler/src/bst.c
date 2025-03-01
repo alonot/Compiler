@@ -1,9 +1,10 @@
 #include "../include/includes.h"
 
-Node* init_node(lli val, NODETYPE n_type) {
+Node* init_node(lli val, NODETYPE n_type,  void (*free_fn)(lli)) {
     Node* n = (Node*)(calloc(1, sizeof(Node))) ;
     n->val = val;
     n->n_type = n_type;
+    n->free = free_fn;
     return n;
 }
 
@@ -23,6 +24,22 @@ int add_child(Node* node, Node* child) {
     }
 }
 
+int add_all_children(Node* node, Node* child, Node* lastchild) {
+    if (node == NULL || child == NULL || lastchild == NULL) {
+        return -1;
+    }
+    lastchild->next = NULL;
+    if (node->first_child == NULL) {
+        node->first_child = child;
+        node->last_child = lastchild;
+    } else if (node->last_child != NULL) {
+        node->last_child->next = child;
+        node->last_child = lastchild;
+    } else {
+        return -1;
+    }
+}
+
 char* node_to_str(Node* node, int* len) {
     *len = 100;
     char* val = (char*)(malloc(sizeof(char) * (*len)));
@@ -34,15 +51,22 @@ char* node_to_str(Node* node, int* len) {
         *len = snprintf(val, *len, "ASSIGN(=)");
         break;    
         case t_NUM: 
-        // printf("VAL: %ld\n",node->val);
         *len = snprintf(val, *len, "NUMBER(%f)", (double)(node->val));
-        // printf("len: %d\n", *len);
+        break;    
+        case t_ARRAY_SIZE: 
+        *len = snprintf(val, *len, "ARRAY_SIZE(%f)", (double)(node->val));
         break;    
         case t_STR: 
         *len = snprintf(val, *len, "STR(%s)", (char*)(node->val));
         break;    
-        case t_FUNC: 
-        *len = snprintf(val, *len, "FUNC(%s)", (char*)(node->val));
+        case t_IDENTIFIER: 
+        *len = snprintf(val, *len, "IDENTIFIER(%s)", (char*)(node->val));
+        break;    
+        case t_KEYWORD: 
+        *len = snprintf(val, *len, "KEYWORD(%s)", (char*)(node->val));
+        break;    
+        case t_OTHER:
+        *len = snprintf(val, *len, "%s", (char*)(node->val));
         break;    
         case t_BOOLEAN: 
         *len = snprintf(val, *len, "BOOLEAN(%s)", (node->val == 1 ? "true" : "false"));
@@ -141,7 +165,7 @@ int create_print_tree(Node* node, int depth,int parent_offset,String* string_at_
     int len = parent_offset;
     child = node->first_child;
     for (int i =0; i < mid; i ++) {
-        len = create_print_tree(child,depth + 1, parent_offset, string_at_depth);
+        len = create_print_tree(child,depth + 1, len, string_at_depth);
         child = child->next;
     }
     len -= length(string_at_depth[depth]);
@@ -150,6 +174,7 @@ int create_print_tree(Node* node, int depth,int parent_offset,String* string_at_
     int cur_len = 0;
     char* val = node_to_str(node, &cur_len);
     add_str(string_at_depth[depth] ,val, cur_len - 1);
+    free(val);
     len = length(string_at_depth[depth]);
     // printf("%sgetting%d %d %d\n", string_at_depth[depth]->val, len, parent_offset, cur_len);
     for (int i =mid; i < total_children; i ++) {
@@ -175,4 +200,37 @@ void printTree(Node* node) {
         printf("%s\n", string_at_depth[i]->val);
         freeString(string_at_depth[i]);
     }
+}
+
+void printNodeWithIndent(Node* node, int depth)  {
+    if (node == NULL)  return;
+    for (int i =0; i < depth; i ++) {
+        printf("\t");
+    }
+    int curr_len = 0;
+    if (depth > 0) {
+        printf("|-");
+    } 
+    char* val = node_to_str(node, &curr_len);
+    printf("%s\n", val);
+    free(val);
+    printNodeWithIndent(node ->first_child, depth + 1);
+    printNodeWithIndent(node ->next, depth);
+}
+
+void printTreeIdent(Node* node) {
+    printNodeWithIndent(node , 0);
+}
+
+
+void free_tree(Node* node) {
+    if (node == NULL) {
+        return;
+    }
+    free_tree(node ->first_child);
+    free_tree(node->next);
+    if (node->free != NULL ) {
+        node->free(node->val);
+    }
+    free(node);
 }

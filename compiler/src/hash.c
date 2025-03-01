@@ -67,21 +67,28 @@ lli next_prime(lli num) {
 }
 
 
-int insert(HashMap* hm, lli key, lli value) {
+lli insert(HashMap* hm, lli key, lli value) {
     if (key == (lli)LLONG_MIN || value == (lli)LLONG_MIN) {
-        return -1;
+        return LLONG_MIN;
     }
     if (hm->len == hm->size / 2) {
         int prev_size = hm->size;
         hm->size = next_prime(hm->size * 2);
         reallocate_hash(hm, prev_size);
+        // printf("Here %lld\n", LLONG_MIN);
+
     }
+
+    // for (int i  =0; i < hm->size; i ++) {
+    //     printf("%ld %d\n", hm->keys[i] ,hm->keys[i] == LLONG_MIN);
+    // }
 
     lli hash_val = hm->hash(key);
     lli pos = hash_val % hm->size;
     // lli size= (lli)pow(2,ceil(log2(hm->size)));
     lli size= hm->size;
     int i =1;
+    // printf("%d\n", size);
     while ((hm->keys[pos] != (lli)LLONG_MIN) ) {
         pos = (hash_val + (i + (i * i)) ) % size;
         i ++ ;
@@ -103,12 +110,12 @@ int reallocate_hash(HashMap* hm, int prev_size) {
     hm->len = 0;
     hm->values = (lli*)malloc(sizeof(lli) * hm->size);
     hm->keys = (lli*)malloc(sizeof(lli) * hm->size);
-    for (int i = 0 ; i < MIN_HASH; i ++) {
+    for (int i = 0 ; i < hm->size; i ++) {
         hm->keys[i] = (lli)LLONG_MIN;
     }
     for (int i =0; i < prev_size; i ++) {
         lli key = prev_keys[i];
-        if (key != (lli)(LLONG_MIN)) {
+        if (key != (lli)(LLONG_MIN) && (char*)key != NULL) {
             lli value = prev_values[i];
             insert(hm, key, value);
         }
@@ -122,21 +129,21 @@ int reallocate_hash(HashMap* hm, int prev_size) {
  * If m is prime and the probing sequence is well-formed (e.g., c1=c2=1), all slots will eventually be visited before a cycle occurs.
  * 
  */
-int get_actual_pos (HashMap* hm, lli key) {
+lli get_actual_pos (HashMap* hm, lli key) {
     lli hash_val = hm->hash(key);
     int pos = hash_val % hm->size;
     // lli size= (lli)pow(2,ceil(log2(hm->size)));
     lli size= hm->size;
     lli i =1;
     short res = 0;
-    // printf("pos %ld %p\n", pos, hm->keys[pos]);
+    // printf("pos %ld %p %ld\n", pos, hm->keys[pos], size);
     while (((res = hm->compare(hm->keys[pos], key) ) != 0 ) && (i <= hm->size)) {
         pos = (hash_val + (i + (i * i)) ) % size;
         // printf("pos %ld\n", pos);
         i ++ ;
     }
     if (i > hm->size) {
-        return INT_MIN;
+        return LLONG_MIN;
     }
     return pos;
 }
@@ -145,12 +152,27 @@ int get_actual_pos (HashMap* hm, lli key) {
  * If key not present then insert in a new entry 
  * else updates the previous entry
  */
-int upsert(HashMap* hm, lli key, lli value) {
+lli upsert(HashMap* hm, lli key, lli value) {
     // printf("__\n");
-    // printf("PP %s: %p, %d\n",key, key, hm->len);
-    int pos = get_actual_pos(hm, key);
-    if (pos == INT_MIN) {
+    lli pos = get_actual_pos(hm, key);
+    if (pos == LLONG_MIN) {
+        // printf("PP %s: %p, %d\n",key, key, hm->len);
         return insert(hm,key,value);
+    } else {
+        hm->values[pos] = value;
+        return 0;
+    }
+}
+
+/**
+ * If key not present then returns INT_MIN 
+ * else updates the previous entry
+ */
+lli update(HashMap* hm, lli key, lli value) {
+    // printf("__\n");
+    lli pos = get_actual_pos(hm, key);
+    if (pos == LLONG_MIN) {
+        return LLONG_MIN;
     } else {
         hm->values[pos] = value;
         return 0;
@@ -160,16 +182,16 @@ int upsert(HashMap* hm, lli key, lli value) {
 
 lli get(HashMap* hm, lli key) {
     // printf("PP %s: %d, %d\n",key, hm->len);
-    int pos = get_actual_pos(hm, key);
-    if (pos == INT_MIN) {
+    lli pos = get_actual_pos(hm, key);
+    if (pos == LLONG_MIN) {
         return (lli)pos;
     }
     return hm->values[pos];
 }
 
 int remove_hm(HashMap* hm, lli key) {
-    int pos = get_actual_pos(hm, key);
-    if (pos == INT_MIN) {
+    lli pos = get_actual_pos(hm, key);
+    if (pos == LLONG_MIN) {
         return -1;
     } 
     hm->keys[pos] = LLONG_MIN;

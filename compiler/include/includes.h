@@ -29,10 +29,11 @@ typedef struct _HashMap {
 
 HashMap* init_hash_map(lli (*hash)(lli), short (*compare)(lli , lli));
 
-int insert(HashMap* hm, lli key, lli value);
+lli insert(HashMap* hm, lli key, lli value);
 
-int upsert(HashMap* hm, lli key, lli value);
+lli upsert(HashMap* hm, lli key, lli value);
 
+lli update(HashMap* hm, lli key, lli value);
 /**
  * Reallocates the HashMap
  */
@@ -81,7 +82,12 @@ lli value_Of(SymbolTables* symtables, lli variable);
 /**
  * Adds a variable and its value to the local-most symbol table if present else to the gloabl symbol table
  */
-int upsert_to(SymbolTables* symt, lli key,lli value);
+lli upsert_to(SymbolTables* symt, lli key,lli value);
+
+/**
+ * Update a variable(if present) and its value to the local-most symbol table if present else to the gloabl symbol table
+ */
+lli update_to(SymbolTables* symt, lli key,lli value);
 
 /**
  * Returns all the keys at top most level symbol table
@@ -120,6 +126,8 @@ lli pop_stack(Stack* st);
 
 typedef enum __ty {
     t_STR,
+    t_IDENTIFIER,
+    t_ARRAY_SIZE,
     t_VAR,
     t_NUM,
     t_ASSIGN,
@@ -130,7 +138,8 @@ typedef enum __ty {
     t_LTE,
     t_NE,
     t_BOOLEAN,
-    t_FUNC
+    t_OTHER,
+    t_KEYWORD
 } NODETYPE;
 
 /**************Tree*********** */
@@ -141,18 +150,23 @@ typedef struct __tree {
     struct __tree* last_child;
     lli val;
     NODETYPE n_type;
+    void (*free)(lli);
 } Node;
 
-Node* init_node(lli val, NODETYPE n_type);
+Node* init_node(lli val, NODETYPE n_type, void (*free)(lli));
 
 /**
  * adds new node to the end of the list of children
  * makes child.next = NULL
  */
 int add_child(Node* node, Node* child);
+int add_all_children(Node* node, Node* child, Node* lastchild);
 
 void printTree(Node* node);
 
+void printTreeIdent(Node* node);
+
+void free_tree(Node*);
 /*************String***************** */
 typedef struct _string {
     char* val;
@@ -179,3 +193,105 @@ void freeString(String* str);
 int length(String* str);
 
 /************************************ */
+
+typedef enum _ste_dtype {
+    DOUBLE,
+    INT,
+    BOOL
+} STETYPE;
+
+typedef union _ste_val {
+    double dval;
+    lli lval;
+} STEVAL;
+
+
+typedef struct STEntry {
+    char* arr; // null for array
+    STEVAL value;
+    STETYPE dtype;
+    int* array_length; // stores length at each level
+    int total_array_length; // stores total length of array including all depth
+    int array_depth; // 0 for non array
+} STEntry ;
+
+/**
+ * creates an entry with empty val and given dtype
+ */
+STEntry* create_stentry(STETYPE dtype);
+
+/**
+ * updates the double entry . requires that type is declared double
+ * pos : position in array where value must be updated
+ * returns LLONG_MIN + 1 if fails with not array but still a position is given
+ * returns LLONG_MIN + 2 if fails with wrong type
+ * returns LLONG_MIN if fails with array but no position is given
+ */
+lli update_double(STEntry* ste, double val,int pos);
+
+/**
+ * updates the int entry . requires that type is declared int
+ * returns LLONG_MIN + 1 if fails with not array but still a position is given
+ * returns LLONG_MIN + 2 if fails with wrong type
+ * returns LLONG_MIN if fails with array but no position is given
+ */
+lli update_int(STEntry* ste, lli val,int pos);
+
+/**
+ * updates the bool entry . requires that type is declared bool
+ * returns LLONG_MIN + 1 if fails with not array but still a position is given
+ * returns LLONG_MIN + 2 if fails with wrong type
+ * returns LLONG_MIN if fails with array but no position is given
+ */
+lli update_bool(STEntry* ste, short val,int pos);
+
+/**
+ * returns the double entry . requires that type is declared double
+ * pos : position in array where value must be updated
+ * returns INT_MIN + 1 if fails with not array but still a position is given
+ * returns INT_MIN + 2 if fails with wrong type
+ */
+lli* get_double(STEntry* ste,int pos);
+
+/**
+ * returns the int entry . requires that type is declared int
+ * returns INT_MIN + 1 if fails with not array but still a position is given
+ * returns INT_MIN + 2 if fails with wrong type
+ */
+lli* get_int(STEntry* ste,int pos);
+
+/**
+ * returns the bool entry . requires that type is declared bool
+ * returns INT_MIN + 1 if fails with not array but still a position is given
+ * returns INT_MIN + 2 if fails with wrong type
+ */
+lli* get_bool(STEntry* ste,int pos);
+
+/**
+ * Adds a layer of array. (increase depth of array with len elements) .
+ * If initially not array , then creates one with len elements
+ */
+int add_array_layer(STEntry* ste, int len);
+
+void free_ste(STEntry* ste) ;
+
+
+/************************************ */
+
+/**
+ * This struct is used by interpret to store values
+ */
+typedef struct com_val {
+    char* name;
+    STETYPE dtype;
+    lli* value;
+    int array_depth;
+	int array_pos;
+    int* array_lengths; 
+    int array_depth_required;
+    int array_max_pos;
+} COMVAL; 
+
+/************************************ */
+
+

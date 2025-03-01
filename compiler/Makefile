@@ -4,14 +4,14 @@ build:
 	gcc -g ./src/**.c ./include/**.c -o ./bin/compiler -lm
 
 run: build
-	./bin/compiler.out
+	./bin/compiler
 
 crun: build
 	clear
-	./bin/compiler.out
+	./bin/compiler
 
 all: build
 	mkdir -p ../compiler/bin
 
 clean:
-	rm -f ./**/**.yy.c ./**/**.tab.* ./bin/compiler.out
+	rm -f ./**/**.yy.c ./**/**.tab.* ./bin/compiler

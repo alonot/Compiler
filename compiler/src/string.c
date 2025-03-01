@@ -2,7 +2,7 @@
 
 String* init_string(char* val, int len) {
     if (len < 0) {
-        len = strlen(val);
+        len = strlen(val);  
     }
     String* str = (String*)(calloc(1,sizeof(String)));
     str->size = (len + 1) * 2;

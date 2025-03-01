@@ -18,7 +18,7 @@
 %{
 	#include "string.h"
 	#include "y.tab.h"
-	int 	Lineno;
+	int 	lineno = 1;
 	int     wflag;
 
 %}
@@ -36,6 +36,7 @@ read				{ return READ; }
 write			{ return WRITE; }	
 integer			{ yylval.num = 1; return T_INT; }	
 boolean				{ yylval.num = 2; return T_BOOL; }	
+double				{ yylval.num = 2; return T_DOUBLE; }	
 decl				{ return DECL; }
 begindecl				{ return DECL; }
 enddecl				{ return ENDDECL; }
@@ -64,7 +65,8 @@ false			      { return F; }
 			
 ["]                             { return yytext[0]; }
 "\\n"                           { }
-[ \t\n]				
+[\n]					{ lineno ++; }
+[ \t]
 .				{ printf("Unrecognized token : %s\n", yytext); exit(1); }		
 
 %%
