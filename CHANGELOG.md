@@ -11,3 +11,16 @@ Initial compiler
 2. Added functionality to store multiple children for each node. using .next pointer
 3. Stack to create the Syntax tree.
 4. Printing the output of each write statement
+
+#### Week 3
+Part 1
+* double type implemented
+* any depth array implemented
+* leak fixes
+
+Part 2
+* removed stack 
+* removed evaluation of expr while creating syntax tree
+* print fixed with new approach
+
+Part 3

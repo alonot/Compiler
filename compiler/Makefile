@@ -4,7 +4,8 @@ build:
 	gcc -g ./src/**.c ./include/**.c -o ./bin/compiler -lm
 
 run: build
-	./bin/compiler
+	@clear
+	./bin/compiler < ./test/3.prog
 
 crun: build
 	clear
@@ -15,3 +16,6 @@ all: build
 
 clean:
 	rm -f ./**/**.yy.c ./**/**.tab.* ./bin/compiler
+
+valgrind: build
+	 valgrind --leak-check=full --show-leak-kinds=all ./bin/compiler < ./test/3.prog

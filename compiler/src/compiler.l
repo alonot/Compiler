@@ -72,11 +72,10 @@ false			      { return F; }
 %%
 #include "../include/includes.h"
 SymbolTables* symbol_tables;
-Stack* stack;
 int main(){
 	symbol_tables = init_sym_tables();
-	stack = init_stack();
 	yyparse();
 	freeAll(symbol_tables);
+	free(symbol_tables);
 	return 0;
 }

@@ -137,9 +137,11 @@ typedef enum __ty {
     t_EE,
     t_LTE,
     t_NE,
+    t_FUNC,
     t_BOOLEAN,
     t_OTHER,
-    t_KEYWORD
+    t_KEYWORD,
+    t_STE // symbol table entry
 } NODETYPE;
 
 /**************Tree*********** */
@@ -167,6 +169,11 @@ void printTree(Node* node);
 void printTreeIdent(Node* node);
 
 void free_tree(Node*);
+
+int add_neighbour(Node* node, Node* child);
+
+int update_last_child(Node* node);
+
 /*************String***************** */
 typedef struct _string {
     char* val;
@@ -200,25 +207,37 @@ typedef enum _ste_dtype {
     BOOL
 } STETYPE;
 
+typedef struct _array_info {
+    char* arr; // null for non-array
+    int* arr_lengths; // stores length at each level
+    int arr_max_pos; // stores total length of array including all depth
+    int arr_depth; // 0 for non array
+    int arr_curr_depth; // current depth while accessing a variable
+    int arr_curr_pos; // current position while accessing this variable
+} DARRAY;
+
 typedef union _ste_val {
     double dval;
     lli lval;
+    DARRAY* arrval;
 } STEVAL;
 
-
 typedef struct STEntry {
-    char* arr; // null for array
     STEVAL value;
     STETYPE dtype;
-    int* array_length; // stores length at each level
-    int total_array_length; // stores total length of array including all depth
-    int array_depth; // 0 for non array
+    char* name; // variable entry name
+    short is_array; // to tell whether this entry is array or not
 } STEntry ;
 
 /**
  * creates an entry with empty val and given dtype
  */
-STEntry* create_stentry(STETYPE dtype);
+STEntry* create_stentry(STETYPE dtype, char* name);
+
+/**
+ * sprintf the ste info in given val
+ */
+int sprintf_ste(STEntry*, char*, int);
 
 /**
  * updates the double entry . requires that type is declared double
@@ -281,16 +300,6 @@ void free_ste(STEntry* ste) ;
 /**
  * This struct is used by interpret to store values
  */
-typedef struct com_val {
-    char* name;
-    STETYPE dtype;
-    lli* value;
-    int array_depth;
-	int array_pos;
-    int* array_lengths; 
-    int array_depth_required;
-    int array_max_pos;
-} COMVAL; 
 
 /************************************ */
 

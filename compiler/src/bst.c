@@ -12,6 +12,9 @@ int add_child(Node* node, Node* child) {
     if (node == NULL) {
         return -1;
     }
+    if (child == NULL) {
+        return 0;
+    }
     child->next = NULL;
     if (node->first_child == NULL) {
         node->first_child = child;
@@ -22,13 +25,41 @@ int add_child(Node* node, Node* child) {
     } else {
         return -1;
     }
+    return 0;
+}
+
+int update_last_child(Node* node) {
+    if (node == NULL) {
+        return 0;
+    }
+    Node* child = node ->first_child;
+    Node* prev = NULL;
+    while (child != NULL) {
+        prev = child;
+        child = child -> next;
+    }
+    node ->last_child = prev;
+}
+
+int add_neighbour(Node* node, Node* child) {
+    if (node == NULL) {
+        return -1;
+    }
+    if (child == NULL) {
+        return 0;
+    }
+    update_last_child(node);
+    node->next = child;
+    return 0;
 }
 
 int add_all_children(Node* node, Node* child, Node* lastchild) {
-    if (node == NULL || child == NULL || lastchild == NULL) {
+    if (node == NULL || child == NULL) {
         return -1;
     }
-    lastchild->next = NULL;
+    if (lastchild != NULL) {
+        lastchild->next = NULL;
+    }
     if (node->first_child == NULL) {
         node->first_child = child;
         node->last_child = lastchild;
@@ -62,6 +93,9 @@ char* node_to_str(Node* node, int* len) {
         case t_IDENTIFIER: 
         *len = snprintf(val, *len, "IDENTIFIER(%s)", (char*)(node->val));
         break;    
+        case t_FUNC: 
+        *len = snprintf(val, *len, "FUNC(%s)", (char*)(node->val));
+        break;    
         case t_KEYWORD: 
         *len = snprintf(val, *len, "KEYWORD(%s)", (char*)(node->val));
         break;    
@@ -70,6 +104,9 @@ char* node_to_str(Node* node, int* len) {
         break;    
         case t_BOOLEAN: 
         *len = snprintf(val, *len, "BOOLEAN(%s)", (node->val == 1 ? "true" : "false"));
+        break;    
+        case t_STE: 
+        *len = sprintf_ste((STEntry*)node -> val, val, *len);
         break;    
         case t_OP: 
             switch((char)(node->val)) {

@@ -18,13 +18,8 @@
 %{	
 	#include <stdio.h>
 	#include "../include/includes.h"
-	extern Stack* stack;
 	extern SymbolTables* symbol_tables;
-	void print_stack();
 	void printTreeIdent(Node* node);
-	void pop_single_n_push(lli val,NODETYPE n_type,  void (*free)(lli));
-	void pop_double_n_push(lli val,NODETYPE n_type,  void (*free)(lli));
-	void pop_all_n_push(lli val,NODETYPE n_type,  void (*free)(lli));
 	int yylex();
 	void yyerror( const char* );
 	int i;	
@@ -53,7 +48,9 @@
 	int num; // integer value
 	double final_val; // double answer
 	struct com_val* pointer; // to store variables pointer
+	struct __tree* node; // bst tree
 }
+
 %token <name> VAR 
 %token <num> NUM
 %token T_INT T_BOOL T_DOUBLE
@@ -66,98 +63,110 @@
 %left LOGICAL_AND LOGICAL_OR
 %left LOGICAL_NOT
 
-%type <final_val> expr
-%type <pointer> var_expr
-%type <final_val> data_type
-%type <name> str_expr
-%type <name> id
+%type <node> expr var_expr str_expr id
+param_list param_list1 func_body func_call func_name func_ret_type
+func_stmt statement stmt_list assign_stmt write_stmt read_stmt cond_stmt list decl 
+decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock
+
 %%
 
 	Prog :	Gdecl_sec prog_block {
-		pop_all_n_push((lli)("Prog"),(NODETYPE)(t_OTHER), NULL);
-		print_stack();
+		if ($1 != NULL) {
+			add_neighbour($1, $2);
+			printTreeIdent($1);
+			free_tree($1);
+		} else {
+			printTreeIdent($2);
+			free_tree($2);
+		}
 	}
 		;
 
-	prog_block : prog_block_stmt_list
-           | Fdef_sec MainBlock { }
+	prog_block : prog_block_stmt_list { 
+				Node* node = init_node((lli)"prog_block", t_OTHER, NULL);
+				add_all_children(node, $1, NULL);
+				$$ = node;
+			}
+			| Fdef_sec MainBlock { 
+				Node* node = init_node((lli)"prog_block", t_OTHER, NULL);
+				add_all_children(node, $1, NULL);
+				add_all_children(node, $2, NULL);
+				$$ = node;
+			}
            ;
 
-	prog_block_stmt_list : /*Nothing*/ {} 
-                    | {push_stack(stack, (lli)NULL);} stmt_list {
-						pop_all_n_push((lli)("Statements"),(NODETYPE)(t_OTHER), NULL);
+	prog_block_stmt_list : /*Nothing*/ { $$ = NULL; } 
+                    |  stmt_list {
+						Node* node = init_node((lli)"prog_block_stmt_list", t_OTHER, NULL);
+						add_all_children(node, $1, NULL);
+						$$ = node;
 					}
-                    | BEG {
-						push_stack(stack, (lli)NULL);
-						Node* node = init_node((lli)"BEG", (NODETYPE)(t_KEYWORD), NULL);
-						push_stack(stack, (lli)node);
-						push_stack(stack, (lli)NULL);
-					} stmt_list END {
-						pop_all_n_push((lli)("Statements"),(NODETYPE)(t_OTHER), NULL);
-						Node* node = init_node((lli)"END", (NODETYPE)(t_KEYWORD), NULL);
-						push_stack(stack, (lli)node);
-						pop_all_n_push((lli)("ProgBlock"),(NODETYPE)(t_OTHER), NULL);
+                    | BEG stmt_list END {
+						Node* node = init_node((lli)"prog_block_stmt_list", t_OTHER, NULL);
+						add_all_children(node, $2, NULL);
+						$$ = node;
 					}
                     ;
 	
-	func_body : BEG stmt_list ret_stmt END
+	func_body : BEG stmt_list ret_stmt END { $$ = NULL; }
 		;
 
-	data_type : 	T_INT		{ curr_dtype = INT; /*for integer */}
-		| T_BOOL { curr_dtype = BOOL; /*for boolean*/}
-		| T_DOUBLE { curr_dtype = DOUBLE; /*for double*/}
-		;
-
-	Gdecl_sec:	DECL {
-			push_stack(stack, (lli)NULL);
-			Node* node = init_node((lli)"DECL", (NODETYPE)(t_KEYWORD), NULL);
-			push_stack(stack, (lli)node);
-		} decl_list  ENDDECL {
-			Node* node = init_node((lli)"ENDDECL", (NODETYPE)(t_KEYWORD), NULL);
-			push_stack(stack, (lli)node);
-			pop_all_n_push((lli)("Gdecl_sec"),(NODETYPE)(t_OTHER), NULL);
-			print_stack();
+	Gdecl_sec:	DECL decl_list  ENDDECL {
+			Node* node = init_node((lli)"Gdecl", t_OTHER, NULL);
+			add_all_children(node, $2, NULL);
+			$$ = node;
 	} 
 		;
 		
-	decl_list: 
-		| 	decl decl_list
+	decl_list:  { $$ = NULL; }
+		| 	decl decl_list {
+			add_neighbour($1, $2);
+			$$ = $1;
+		}
 		;
 		
-	decl 	:	data_type {push_stack(stack, (lli)NULL);} list ';' { 
-		pop_all_n_push((lli)($1 == 1 ? "Integer": "Bool"),(NODETYPE)(t_KEYWORD), NULL);
+	decl 	:	data_type list ';' { 
+		add_all_children($1, $2, NULL);
+		$$ = $1;
 	}
+		;
+
+	data_type : 	T_INT		{ 
+			$$ = init_node((lli)("INTEGER"),(NODETYPE)(t_KEYWORD), NULL);
+			curr_dtype = INT; /*for integer */
+		}
+		| T_BOOL { curr_dtype = BOOL; /*for boolean*/ $$ = init_node((lli)("BOOL"),(NODETYPE)(t_KEYWORD), NULL);}
+		| T_DOUBLE { curr_dtype = DOUBLE; /*for double*/ $$ = init_node((lli)("DOUBLE"),(NODETYPE)(t_KEYWORD), NULL);}
 		;
 	
 
 		
 	list 	:	id { 
-		pop_all_n_push((lli)$1, (NODETYPE)(t_IDENTIFIER), free_string);
+			$$ = $1;
 			}
-		|	id {
-			pop_all_n_push((lli)$1, (NODETYPE)(t_IDENTIFIER), free_string);
-		} ',' list 
+		|	id ',' list {
+			add_neighbour($1, $3);
+			$$ = $1;
+		}
 		;
 	
 	id	:	VAR		{ 		
-						upsert_to(symbol_tables, (lli)$1, (lli)create_stentry((STETYPE)(curr_dtype)));
-						$$ = $1;
-						push_stack(stack, (lli)NULL); 
-
+						STEntry* ste = create_stentry((STETYPE)(curr_dtype), $1);
+						upsert_to(symbol_tables, 
+						(lli)$1, 
+						(lli)ste);
+						$$ = init_node((lli)(ste), t_STE, NULL);
 					}
 		|	id '[' NUM ']'	{
-			$$ = $1;
-			STEntry* ste = (STEntry*)value_Of(symbol_tables, (lli)$1);
-			if (ste == NULL || (lli)ste == LLONG_MIN) {
-				printf("Variable not declared : %s\n", $1);
-				yyerror("");
-			} else if ($3 == 0) {
+			STEntry* ste = (STEntry*)$1 -> val;
+			if ($3 == 0) {
 				yyerror("Array length cannot be 0\n");
 			} else {
 				add_array_layer(ste, $3);
 			}
 			Node* node = init_node((lli)($3), (NODETYPE)(t_ARRAY_SIZE), NULL);
-			push_stack(stack, (lli)node);
+			add_child($1 , node);
+			$$ = $1;
 		   }
 		;
 		
@@ -177,8 +186,8 @@
 		|	VAR ',' var_list { 	}
 		;
 		
-	Fdef_sec:	
-		|	Fdef_sec Fdef
+	Fdef_sec:	 {}
+		|	Fdef_sec Fdef {}
 		;
 		
 	Fdef	:	func_ret_type func_name {add_local_symbol_table(symbol_tables);} '(' FargList ')' '{' Ldecl_sec func_body '}'	{	remove_local_symbol_table(symbol_tables); 				}
@@ -206,324 +215,237 @@
 	Ldecl_sec:	DECL {} decl_list ENDDECL
 		;
 
-	stmt_list:	statement		{  }
-		|	statement stmt_list	{						}
-		|	error ';' 		{  }
+	stmt_list:	statement		{ $$ = $1; }
+		|	statement stmt_list	{		add_neighbour($1, $2);$$ = $1;				}
+		|	error ';' 		{ }
 		;
 
-	statement:	assign_stmt  ';'		{ 							 }
-		|	read_stmt ';'		{ }
-		|	write_stmt ';'		{ }
-		|	cond_stmt 		{ }
-		|	func_stmt ';'		{ }
+	statement:	assign_stmt  ';'		{ 			$$ = $1;				 }
+		|	read_stmt ';'		{ $$ = $1; }
+		|	write_stmt ';'		{  $$ = $1; }
+		|	cond_stmt 		{ $$ = $1; }
+		|	func_stmt ';'		{ $$ = $1; }
 		;
 
-	read_stmt:	READ '(' var_expr ')' 
-		;
-
-	write_stmt:	WRITE '(' '"' {
-			// printf("call write \"");
-		} str_expr '"' ')'      {
-			Node* node = init_node( (lli)$5, (NODETYPE)(t_STR), free_string);
-			push_stack(stack, (lli)node);
-			pop_single_n_push((lli)"Write", (NODETYPE)(t_KEYWORD), NULL);
+	read_stmt:	READ '(' var_expr ')'  { 
+			Node * node = init_node((lli)"READ", (NODETYPE)(t_FUNC), NULL);
+			add_child(node, $3);
+			$$ = node; 
 		}
-		| WRITE  '(' { 
-				write = 1;
-				push_stack(stack, (lli)NULL);
-			} param_list ')' 	{
-				write= 0;
-				pop_all_n_push((lli)"Write",(NODETYPE)(t_KEYWORD), NULL);
+		;
+
+	write_stmt:	WRITE '(' '"' str_expr '"' ')'      {
+			Node * node = init_node((lli)"Write", (NODETYPE)(t_FUNC), NULL);
+			add_child(node, $4);
+			$$ = node;
+		}
+		| WRITE  '(' param_list ')' 	{
+			Node * node = init_node((lli)"Write", (NODETYPE)(t_FUNC), NULL);
+			add_child(node, $3);
+			$$ = node;
 			}
 		;
 	
 	assign_stmt:	var_expr '=' expr 	{ 		
-			COMVAL* val = $1;
-			if (val -> array_depth < val -> array_depth_required) {
-				printf("Array %s should be refrenced %d times.\n", val -> name, val -> array_depth_required);
-				yyerror("");
+			Node* node = $1;
+			if (node->n_type != t_STE) {
+				yyerror("How is this possible? var expression must return node_type t_STE");
 			}
-			Node* node;
-			switch(val -> dtype) {
-				case DOUBLE:
-				node = init_node(*(double*) (val -> value), (NODETYPE)(t_VAR), NULL);
-				*(double*) (val -> value) = (double) $3;
-				break;
-				case BOOL:
-				node = init_node((*(short*) (val -> value)) != 0, (NODETYPE)(t_VAR), NULL);
-				*(short*) (val -> value) = (short) ($3 != 0);
-				break;
-				case INT:
-				node = init_node(* (lli*) (val -> value), (NODETYPE)(t_VAR), NULL);
-				*(lli*) (val -> value) = (lli) $3;
-				break;
-				default:
-				yyerror("");
+			STEntry* ste = (STEntry*)node ->val;
+			if (ste->is_array != 0) { // array
+				DARRAY* arrval = ste->value.arrval;
+				if (arrval->arr_curr_depth < arrval -> arr_depth) {
+					printf("Array %s should be derefrenced %d times only.\n", ste -> name, arrval -> arr_depth);
+					yyerror("");
+				}
 			}
-			free(val -> name);
-			free(val);
-			push_stack(stack, (lli)node);
-			pop_double_n_push(0, (NODETYPE)(t_ASSIGN), NULL);
-			
+			node = init_node(0, t_ASSIGN, NULL);
+			add_child(node,$1);
+			add_child(node,$3);
+			$$ = node;
 		}
 		;
 
 	cond_stmt:	IF expr THEN stmt_list ENDIF 	{ 						}
 		|  IF expr THEN stmt_list ELSE stmt_list ENDIF 	{ 						}
 	    |  FOR '(' assign_stmt  ';'  expr ';'  assign_stmt ')' '{' stmt_list '}' {}
-		|  WHILE '(' expr ')' DO stmt_list ENDWHILE
+		|  WHILE '(' expr ')' DO stmt_list ENDWHILE {}
 		;
 	
-	func_stmt:	func_call 		{ 						}
+	func_stmt:	func_call 		{ 		$$ = $1;			}
 		;
 		
-	func_call:	VAR '(' param_list ')'	{ 						   }
+	func_call:	VAR '(' param_list ')'	{ 		
+			Node * node = init_node((lli)$1, (NODETYPE)(t_FUNC), free_string);
+			add_all_children(node, $3, NULL);
+			$$ = node;				   }
 		;
 		
-	param_list:				
-		|	param_list1		
+	param_list:				{ $$ = NULL; }
+		|	param_list1	{ $$ = $1; }
 		;
 		
-	param_list1:	para			
-		|	para ',' {
-				// printf(", ");
-			} param_list1	
-		;
-
-	para	:	expr			{ 			
-		if (write == 1) {
-			printf("%f\n", $1);
-			// Node* node = init_node($1, (NODETYPE)(t_VAR));
-			// push_stack(stack, (lli)node);
+	param_list1:	expr { $$ = $1; }
+		|	expr ',' param_list1 {
+			add_neighbour($1, $3);
+			$$ = $1;
 		}	
-	}
-
 		;
 
-	expr	:	NUM 			{ 	$$ = $1;
-							Node* node = init_node($1, (NODETYPE)(t_NUM), NULL);
-							push_stack(stack, (lli)node);
-								//  printf("%d\n",$1 );	
+	expr	:	NUM 			{
+								$$ = init_node($1, (NODETYPE)(t_NUM), NULL);
 								}
-		|	'-' NUM			{  			$$ = -1 * $2;
-							pop_single_n_push(0, (NODETYPE)(t_MINUS), NULL);
-								//  printf("-%d\n",$2 );			   
+		|	'-' NUM			{  
+								$$ = init_node(-1 * $2, (NODETYPE)(t_NUM), NULL);
 							}
-		|	var_expr		{
-								COMVAL* val = $1;
-								if (val -> array_depth < val -> array_depth_required) {
-									printf("Array %s should be refrenced %d times.\n", val -> name, val -> array_depth_required);
-									yyerror("");
+		|	var_expr		{			
+								Node* node = $1;
+								if (node->n_type != t_STE) {
+									yyerror("How is this possible? var expression must return node_type t_STE");
 								}
-								switch(val -> dtype) {
-									case DOUBLE:
-									$$ = * (double*) (val -> value);
-									break;
-									case BOOL:
-									$$ = (*(short*) (val -> value)) != 0;
-									break;
-									case INT:
-									$$ = * (lli*) (val -> value);
-									break;
-									default:
-									yyerror("");
+								STEntry* ste = (STEntry*)node ->val;
+								if (ste->is_array != 0) { // array
+									DARRAY* arrval = ste->value.arrval;
+									if (arrval->arr_curr_depth < arrval -> arr_depth) {
+										printf("Array %s should be derefrenced %d times only.\n", ste -> name, arrval -> arr_depth);
+										yyerror("");
+									}
 								}
-								free(val -> name);
-								free(val);
-								Node* node = init_node($$, (NODETYPE)(t_VAR), NULL);
-								push_stack(stack, (lli)node);
+								$$ = $1;
 							}
-		|	T			{	$$ = 1;			  
-							Node* node = init_node(1, (NODETYPE)(t_BOOLEAN), NULL);
-							push_stack(stack, (lli)node);
+		|	T			{	  
+							$$ = init_node(1 , (NODETYPE)(t_BOOLEAN), NULL);
 			}
-		|	F			{   $$ = 0;	
-							Node* node = init_node(0, (NODETYPE)(t_BOOLEAN), NULL);
-							push_stack(stack, (lli)node);
+		|	F			{   
+							$$ = init_node(0 , (NODETYPE)(t_BOOLEAN), NULL);
 						}
 		|	'(' expr ')'		{  	$$ = $2;	}
 
-		|	expr '+' expr 		{ 		$$ = $1 + $3;
-									pop_double_n_push('+', (NODETYPE)(t_OP), NULL);
-									// printf("+");		
+		|	expr '+' expr 		{ 	
+									Node* node = init_node('+', t_OP, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
 								}
-		|	expr '-' expr	 	{ 			$$ = $1 - $3;
-									pop_double_n_push('-', (NODETYPE)(t_OP), NULL);
-										// printf("-");
+		|	expr '-' expr	 	{
+									Node* node = init_node('-', t_OP, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
+								}
+		|	expr '*' expr 		{ 	Node* node = init_node('*', t_OP, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
+								}
+		|	expr '/' expr 		{ 	Node* node = init_node('/', t_OP, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
+								}
+		|	expr '%' expr 		{ 	Node* node = init_node('%', t_OP, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
+								}
+		|	expr '<' expr		{ 	Node* node = init_node('<', t_OP, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
+								}
+		|	expr '>' expr		{ 	Node* node = init_node('>', t_OP, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
+								}
+		|	expr GREATERTHANOREQUAL expr				{ 
+									Node* node = init_node(0, t_GTE, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
+								}
+		|	expr LESSTHANOREQUAL expr	{ Node* node = init_node(0, t_LTE, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
 									}
-		|	expr '*' expr 		{ 	$$ = $1 * $3;
-									pop_double_n_push('*', (NODETYPE)(t_OP), NULL);
-									// printf("*");
-								}
-		|	expr '/' expr 		{ 			$$ = $1 / $3;
-									pop_double_n_push('/', (NODETYPE)(t_OP), NULL);
-									// printf("DIV ");
-								}
-		|	expr '%' expr 		{ 		$$ = (lli)$1 % (lli)$3;
-									pop_double_n_push('%', (NODETYPE)(t_OP), NULL);
-									// printf(" MOD ");
-								}
-		|	expr '<' expr		{ 			$$ = $1 < $3;
-									pop_double_n_push('<', (NODETYPE)(t_OP), NULL);
-									// printf("+");
-								}
-		|	expr '>' expr		{ 			$$ = $1 > $3;
-									pop_double_n_push('>', (NODETYPE)(t_OP), NULL);
-									// printf("+");
-								}
-		|	expr GREATERTHANOREQUAL expr				{ $$ = $1 >= $3;
-									pop_double_n_push(0, (NODETYPE)(t_GTE), NULL);
-									// printf("+");
-								}
-		|	expr LESSTHANOREQUAL expr	{  			$$ = $1 <= $3;
-										// printf("+");
-									pop_double_n_push(0, (NODETYPE)(t_LTE), NULL);
+		|	expr NOTEQUAL expr			{ 		Node* node = init_node(0, t_NE, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
 									}
-		|	expr NOTEQUAL expr			{ 			$$ = $1 != $3;
-										// printf("+");
-									pop_double_n_push(0, (NODETYPE)(t_NE), NULL);
-									}
-		|	expr EQUALEQUAL expr	{ 		$$ = $1 == $3;
-									pop_double_n_push(0, (NODETYPE)(t_EE), NULL);
-											// printf("+");
+		|	expr EQUALEQUAL expr	{ 	Node* node = init_node(0, t_EE, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
 										}
-		|	LOGICAL_NOT expr	{ 				$$ = !(lli)$2;
-									pop_single_n_push('!', (NODETYPE)(t_OP), NULL);
+		|	LOGICAL_NOT expr	{ 	Node* node = init_node('!', t_OP, NULL);
+									add_child(node,$2);
+									$$ = node;
 			}
-		|	expr LOGICAL_AND expr	{ 			$$ = (lli)$1 & (lli)$3;
-									pop_double_n_push('&', (NODETYPE)(t_OP), NULL);
-										// printf("+");
+		|	expr LOGICAL_AND expr	{ 	Node* node = init_node('&', t_OP, NULL);
+									add_child(node,$1);
+									add_child(node,$3);
+									$$ = node;
 									}
-		|	expr LOGICAL_OR expr	{ 		$$ = (lli)$1 | (lli)$3;
-									pop_double_n_push('|', (NODETYPE)(t_OP), NULL);
-											// printf("+");
+		|	expr LOGICAL_OR expr	{ 	
+										Node* node = init_node('|', t_OP, NULL);
+										add_child(node,$1);
+										add_child(node,$3);
+										$$ = node;
 										}
 		|	func_call		{  }
 
 		;
-	str_expr :  VAR                       { $$ = $1; }
-                  | str_expr VAR   { $$ = strcat($1, $2);}
+	str_expr :  VAR                       { 
+						$$ = init_node((lli)($1), t_STR, free_string); 
+					}
+                  | str_expr VAR   { 
+					Node* node = init_node((lli)$1, t_STR, free_string);
+					add_child($1, node);
+					$$ = $1;
+				}
                 ;
 	
-	var_expr:	VAR	{ 		
+	var_expr:	VAR	{
 					STEntry* ste = (STEntry*)value_Of(symbol_tables, (lli)$1);
 					if (ste == NULL || (lli)ste == LLONG_MIN) {
 						printf("Variable not declared : %s\n", $1);
 						yyerror("");
 					} else {
-						COMVAL* val = (COMVAL*) (calloc(1, sizeof(COMVAL)));
-						val->dtype = ste->dtype;
-						val->array_max_pos = ste->total_array_length;
-						val->array_depth_required = ste->array_depth;
-						val -> array_lengths = ste -> array_length;
-						val -> array_depth = -1;
-						val -> name = $1;
-						switch (ste->dtype) {
-							case DOUBLE:
-								val->value = (lli*)get_double(ste, -1);
-							break;
-							case INT:
-								val->value = (lli*)get_int(ste, -1);
-							break;
-							case BOOL:
-								val->value = (lli*)get_bool(ste, -1);
-							break;
-							default:
-							yyerror("");
+						if (ste -> is_array) {
+							ste -> value.arrval -> arr_curr_depth = 0;
+							ste -> value.arrval -> arr_curr_pos = 0;
 						}
-						val -> array_depth = 0;
-						$$ = val;
+						$$ = init_node((lli)ste, t_STE, NULL);
 					}
+					free($1);
 			  }
 		|	var_expr '[' expr ']'	{ 
-			COMVAL* val = $1 ;
-			if (val -> array_depth >= val->array_depth_required) {
-				if (val -> array_depth_required == 0) {
-					printf("%s is not array \n", val -> name);
-				} else {
-					printf("Array %s should be refrenced %d times.\n", val -> name, val -> array_depth_required);
-				}
-				yyerror("");
-			} else {
-				val -> array_pos += val->array_lengths[val -> array_depth ++] * (int)$3;
-				if (val -> array_pos >= val -> array_max_pos) {
-					printf("Index %d out of bounds (%d) for Array %s \n", (int)$3, val->array_lengths[val -> array_depth - 1], val -> name);
-					yyerror("");
-				}
+			Node* node = $1;
+			if (node -> n_type != t_STE) {
+				yyerror("How is this possible? var expression must return node_type t_STE");
 			}
-			$$ = val;
-			
-			
+			STEntry* ste = (STEntry*)node ->val;
+			if (ste -> is_array == 0) {
+				printf("%s is not array \n", ste -> name);
+				yyerror("");
+			}
+			DARRAY* val = ste -> value.arrval;
+			if (val -> arr_curr_depth >= val->arr_depth) {
+				printf("Array %s should be derefrenced %d times only.\n", ste -> name, val -> arr_depth);
+				yyerror("");
+			}
+			val -> arr_curr_depth ++;
+			add_child($1, $3);
+			$$ = $1;	
 		}
 		;
 %%
 
 extern int	lineno;
 
-void print_stack() {
-	Node* node;
-	while((node = (Node*)pop_stack(stack)) != NULL && (lli)node != LLONG_MIN) {
-		/* printf("%p\n", node); */
-		/* printTree(node); */
-		printTreeIdent(node);
-		free_tree(node);
-		printf("-----------------------------------------\n");
-	}
-}
-
-
-void pop_double_n_push(lli val,NODETYPE n_type,  void (*free)(lli)) {
-	Node* node = init_node(val, (NODETYPE)(n_type), free);
-	Node* right_child = (Node*)pop_stack(stack); 
-	/* printf("double %d %c %p\n", n_type, (char)val, right_child); */
-	if (right_child == NULL) {
-		fprintf(stderr,"No right child\n");
-		return;
-	}
-	Node* left_child = (Node*)pop_stack(stack);
-	if (left_child == NULL) {
-		fprintf(stderr,"No left child\n");
-		return;
-	}
-	add_child(node, left_child);
-	add_child(node, right_child);
-	push_stack(stack, (lli)node);
-}
-
-void pop_all_n_push(lli val,NODETYPE n_type,  void (*free)(lli)) {
-	Node* node = init_node(val, (NODETYPE)(n_type), free);
-	Node* child;
-	Node* prev = NULL;
-	Node* head = NULL;
-	while ((child = (Node*)pop_stack(stack)) != NULL  && (lli)child != LLONG_MIN) {
-		/* add_child(node, child); */
-		child -> next = prev;
-		if (head == NULL) {
-			head = child;	
-		} 
-		prev = child;
-	}
-	if (head != NULL  && (lli)head != LLONG_MIN ) {
-		add_all_children(node, prev, head);
-	}
-	push_stack(stack, (lli)node);
-}
-
-void pop_single_n_push(lli val,NODETYPE n_type,  void (*free)(lli)) {
-	Node* node = init_node(val, (NODETYPE)(n_type), free);
-	Node* right_child = (Node*)pop_stack(stack); 
-	/* printf("single %d\n", n_type); */
-	if (right_child == NULL) {
-		fprintf(stderr,"No right child");
-		return;
-	}
-	add_child(node, right_child);
-	push_stack(stack, (lli)node);
-}
-
 void yyerror ( const char  *s) {
-	/* fprintf(stderr, "%s: %s", progname, s); */
-	/* fprintf(stderr, " %s %d\n", yylval.name, yylval.num); */
 	fprintf (stderr, "%s", s);
 	fprintf(stderr, " near line %d\n", lineno);
 	exit(0);
