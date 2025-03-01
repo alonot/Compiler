@@ -97,25 +97,27 @@ int add_array_layer(STEntry* ste, int len) {
         ste->value.arrval = (DARRAY*) calloc(1, sizeof(DARRAY));
         ste->value.arrval->arr_max_pos = 1;
     }
-    ste->value.arrval->arr_max_pos *= len;
-    ste->value.arrval->arr_depth ++;
-    ste->value.arrval->arr_lengths = (int*) realloc(ste->value.arrval->arr_lengths, sizeof(int) * ste->value.arrval->arr_depth);
-    ste->value.arrval->arr_lengths[ste->value.arrval->arr_depth - 1] = len;
+    DARRAY* arrval = ste->value.arrval;
+    arrval->arr_max_pos *= len;
+    arrval->arr_depth ++;
+    arrval->arr_lengths = (int*) realloc(arrval->arr_lengths, sizeof(int) * (arrval->arr_depth + 1));
+    arrval->arr_lengths[0] = 1;
+    arrval->arr_lengths[arrval->arr_depth] = len;
     switch (ste->dtype)
     {
     case DOUBLE:
-        free(ste->value.arrval->arr);
-        ste->value.arrval->arr = (char*) (malloc(sizeof(double) * ste->value.arrval->arr_max_pos));
+        free(arrval->arr);
+        arrval->arr = (char*) (malloc(sizeof(double) * arrval->arr_max_pos));
         break;
     
     case INT:
-        free(ste->value.arrval->arr);
-        ste->value.arrval->arr = (char*) (malloc(sizeof(lli) * ste->value.arrval->arr_max_pos));
+        free(arrval->arr);
+        arrval->arr = (char*) (malloc(sizeof(lli) * arrval->arr_max_pos));
         break;
     
     case BOOL:
-        free(ste->value.arrval->arr);
-        ste->value.arrval->arr = (char*) (malloc(sizeof(short) * ste->value.arrval->arr_max_pos));
+        free(arrval->arr);
+        arrval->arr = (char*) (malloc(sizeof(short) * arrval->arr_max_pos));
         break;
 
     default:

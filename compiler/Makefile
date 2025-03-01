@@ -5,7 +5,7 @@ build:
 
 run: build
 	@clear
-	./bin/compiler < ./test/3.prog
+	./bin/compiler < ./test/4.sil
 
 crun: build
 	clear

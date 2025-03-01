@@ -24,3 +24,11 @@ Part 2
 * print fixed with new approach
 
 Part 3
+* Conditional statements are evaluated as follows ... 
+    1. Conditional statements are marked with t_COND
+    2. in each node of type t_COND, 1st child is the `expression`, 2nd child is `if block`, and 3rd child is`else block` (in case `else` exists)
+* Similarly for loops there is a `loop_block`.
+* Added a new way to visualize trees. This new method uses indentations to display syntax trees and is more clean to visualize. Current program uses this new print function: `printTreeIdent`.
+* changed write grammer to include string and variables together. 
+* Implemented `read`.
+* added `break` and `continue` to the grammer.

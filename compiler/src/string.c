@@ -15,7 +15,10 @@ String* init_string(char* val, int len) {
 
 void add_str(String* str, char* val, int len) {
     if (len < 0) {
-        len = strlen(val) - 1;
+        len = strlen(val);
+        if (len != 0 && val[len - 1] == '\0') {
+            len --;
+        }
     }
     // printf("%sAdd %d: %s\n", str->val, str->length,val);
     if (str->length + len >= str->size) {

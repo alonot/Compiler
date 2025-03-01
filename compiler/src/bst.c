@@ -93,8 +93,38 @@ char* node_to_str(Node* node, int* len) {
         case t_IDENTIFIER: 
         *len = snprintf(val, *len, "IDENTIFIER(%s)", (char*)(node->val));
         break;    
+        case t_EXPR: 
+        *len = snprintf(val, *len, "EXPR");
+        break;    
         case t_FUNC: 
         *len = snprintf(val, *len, "FUNC(%s)", (char*)(node->val));
+        break;    
+        case t_COND: 
+        *len = snprintf(val, *len, "COND");
+        break;    
+        case t_FOR: 
+        *len = snprintf(val, *len, "FOR");
+        break;    
+        case t_IF_BLOCK: 
+        *len = snprintf(val, *len, "IF_BLOCK");
+        break;    
+        case t_ELSE_BLOCK: 
+        *len = snprintf(val, *len, "ELSE_BLOCK");
+        break;    
+        case t_LOOP_BLOCK: 
+        *len = snprintf(val, *len, "LOOP_BLOCK");
+        break;    
+        case t_NOP: 
+        *len = snprintf(val, *len, "NOP");
+        break;    
+        case t_WHILE: 
+        *len = snprintf(val, *len, "WHILE");
+        break;    
+        case t_BREAK: 
+        *len = snprintf(val, *len, "BREAK");
+        break;    
+        case t_CONTINUE: 
+        *len = snprintf(val, *len, "CONTINUE");
         break;    
         case t_KEYWORD: 
         *len = snprintf(val, *len, "KEYWORD(%s)", (char*)(node->val));

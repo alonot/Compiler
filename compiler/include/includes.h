@@ -8,6 +8,9 @@
 #define ulli unsigned long long int
 #define lli long long int
 #define MIN_HASH 5
+
+void yyerror( const char* );
+
 /**
  * Converts string to int for hashing it
  * Gives different weights to different positions hence enforces ordering.
@@ -141,7 +144,17 @@ typedef enum __ty {
     t_BOOLEAN,
     t_OTHER,
     t_KEYWORD,
-    t_STE // symbol table entry
+    t_EXPR,
+    t_BREAK,
+    t_CONTINUE,
+    t_STE, // symbol table entry
+    t_COND, // for conditional 
+    t_IF_BLOCK, // if block
+    t_ELSE_BLOCK, // else block
+    t_LOOP_BLOCK, // for block
+    t_WHILE, // for while loop
+    t_FOR, // for loop
+    t_NOP, // no operation
 } NODETYPE;
 
 /**************Tree*********** */
@@ -202,9 +215,9 @@ int length(String* str);
 /************************************ */
 
 typedef enum _ste_dtype {
-    DOUBLE,
+    BOOL,
     INT,
-    BOOL
+    DOUBLE
 } STETYPE;
 
 typedef struct _array_info {
@@ -301,6 +314,48 @@ void free_ste(STEntry* ste) ;
  * This struct is used by interpret to store values
  */
 
+/****************Run******************** */
+
+/**
+ * returns 0 for success
+ *         1 for break
+*          2 for continue
+ */
+int run(Node* node);
+
+#define max(a,b) a > b ? a : b;
+
+/**
+ * assigns the value in addr to the val according to dtype
+ */
+void assign_val(lli *addr, int dtype, double* val);
+
+void evaluate_function(Node* node, double* val);
+
+/**
+ * requires the node to be t_ASSIGN type
+ */
+void evaluate_assign(Node *node);
+
+String *evaluate_string(Node *node);
+
+int check_eq_to_int(double val, int to, int dtype);
+
+/**
+ * requires the node to be t_STE type
+ * returns type of the variable
+ */
+int resolve_ste(Node *node, lli **addr);
+
+/**
+ * expected child of the t_EXPR node
+ * * returns the type of expression
+ */
+int evalute_expr(Node *node, double *val);
+
+/**
+ * assigns the val to the addr according to dtype
+ */
+void assign_addr(lli *addr, int dtype, double val);
+
 /************************************ */
-
-

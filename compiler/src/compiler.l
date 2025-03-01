@@ -57,6 +57,8 @@ OR				{ return LOGICAL_OR; }
 NOT			{ return LOGICAL_NOT; }
 true			{ return T; }	
 false			      { return F; }
+break			      { return BREAK; }
+continue			      { return CONTINUE; }
 
 {digit}+			{ yylval.num = atoi(yytext);	return NUM; }
 

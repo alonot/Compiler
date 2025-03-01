@@ -21,9 +21,8 @@
 	extern SymbolTables* symbol_tables;
 	void printTreeIdent(Node* node);
 	int yylex();
-	void yyerror( const char* );
 	int i;	
-	short write = 0;
+	short inside_loop = 0;
 	short curr_dtype = 0;
 
 	void free_string(lli val) {
@@ -41,6 +40,7 @@
 %token EQUALEQUAL LESSTHANOREQUAL GREATERTHANOREQUAL NOTEQUAL
 %token WHILE DO ENDWHILE FOR 
 %token T F 
+%token BREAK CONTINUE 
 %token MAIN RETURN
 
 %union {
@@ -64,9 +64,10 @@
 %left LOGICAL_NOT
 
 %type <node> expr var_expr str_expr id
-param_list param_list1 func_body func_call func_name func_ret_type
+param_list param_list1 func_body func_call func_name func_ret_type for_assign_stmt for_expr_eval
 func_stmt statement stmt_list assign_stmt write_stmt read_stmt cond_stmt list decl 
-decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock
+decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock expr_eval
+param_list_with_str param_list1_with_str
 
 %%
 
@@ -74,6 +75,7 @@ decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock
 		if ($1 != NULL) {
 			add_neighbour($1, $2);
 			printTreeIdent($1);
+			run($1);
 			free_tree($1);
 		} else {
 			printTreeIdent($2);
@@ -202,7 +204,7 @@ decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock
 	FargList:	arg_list	{ 					}
 		;
 
-	ret_stmt:	RETURN expr ';'	{ 					}
+	ret_stmt:	RETURN expr_eval ';'	{ 					}
 		;
 			
 	MainBlock: 	func_ret_type main {add_local_symbol_table(symbol_tables);} '('')''{' Ldecl_sec func_body  '}'		{ 	remove_local_symbol_table(symbol_tables);}
@@ -225,28 +227,35 @@ decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock
 		|	write_stmt ';'		{  $$ = $1; }
 		|	cond_stmt 		{ $$ = $1; }
 		|	func_stmt ';'		{ $$ = $1; }
+		|	BREAK ';'		{ 
+			if (!inside_loop) {
+				yyerror("break can only be used inside a loop block\n");
+			}
+			$$ = init_node(0, t_BREAK, NULL); 
+		}
+		|	CONTINUE ';'		{ 
+			if (!inside_loop) {
+				yyerror("continue can only be used inside a loop block\n");
+			}
+			$$ = init_node(0, t_CONTINUE, NULL); 
+		}
 		;
 
 	read_stmt:	READ '(' var_expr ')'  { 
 			Node * node = init_node((lli)"READ", (NODETYPE)(t_FUNC), NULL);
-			add_child(node, $3);
+			add_all_children(node, $3, NULL);
 			$$ = node; 
 		}
 		;
 
-	write_stmt:	WRITE '(' '"' str_expr '"' ')'      {
-			Node * node = init_node((lli)"Write", (NODETYPE)(t_FUNC), NULL);
-			add_child(node, $4);
-			$$ = node;
-		}
-		| WRITE  '(' param_list ')' 	{
-			Node * node = init_node((lli)"Write", (NODETYPE)(t_FUNC), NULL);
-			add_child(node, $3);
+	write_stmt:	WRITE  '(' param_list_with_str ')' 	{
+			Node * node = init_node((lli)"WRITE", (NODETYPE)(t_FUNC), NULL);
+			add_all_children(node, $3, NULL);
 			$$ = node;
 			}
 		;
 	
-	assign_stmt:	var_expr '=' expr 	{ 		
+	assign_stmt:	var_expr '=' expr_eval 	{ 		
 			Node* node = $1;
 			if (node->n_type != t_STE) {
 				yyerror("How is this possible? var expression must return node_type t_STE");
@@ -261,15 +270,57 @@ decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock
 			}
 			node = init_node(0, t_ASSIGN, NULL);
 			add_child(node,$1);
-			add_child(node,$3);
+			add_child(node , $3);
 			$$ = node;
 		}
 		;
 
-	cond_stmt:	IF expr THEN stmt_list ENDIF 	{ 						}
-		|  IF expr THEN stmt_list ELSE stmt_list ENDIF 	{ 						}
-	    |  FOR '(' assign_stmt  ';'  expr ';'  assign_stmt ')' '{' stmt_list '}' {}
-		|  WHILE '(' expr ')' DO stmt_list ENDWHILE {}
+	cond_stmt:	IF '(' expr_eval ')' THEN stmt_list ENDIF 	{ 		
+						Node*  node = init_node(0, t_COND, NULL);
+						add_child(node, $3);
+						Node*  if_node = init_node(0, t_IF_BLOCK, NULL);
+						add_all_children(if_node, $6, NULL);
+						add_child(node, if_node);
+						$$ = node;
+					}
+		|  IF '(' expr_eval ')' THEN stmt_list ELSE stmt_list ENDIF 	{ 		
+						Node*  node = init_node(0, t_COND, NULL);
+						add_child(node, $3);
+						Node*  if_node = init_node(0, t_IF_BLOCK, NULL);
+						add_all_children(if_node, $6, NULL);
+						add_child(node, if_node);
+						Node*  else_node = init_node(0, t_ELSE_BLOCK, NULL);
+						add_all_children(else_node, $8, NULL);
+						add_child(node, else_node);
+						$$ = node;
+						}
+	    |  FOR '(' for_assign_stmt  ';'  for_expr_eval ';'  for_assign_stmt ')' '{' {inside_loop ++;} stmt_list '}' {
+			Node* node = init_node(0, t_FOR, NULL);
+			add_child(node, $3);
+			add_child(node, $5);
+			add_child(node, $7);
+			Node*  loop_node = init_node(0, t_LOOP_BLOCK, NULL);
+			add_all_children(loop_node, $11, NULL);
+			add_child(node, loop_node);
+			$$ = node;
+			inside_loop --;
+		}
+		|  WHILE '(' expr_eval ')' DO {inside_loop ++;} stmt_list ENDWHILE {
+			Node* node = init_node(0, t_WHILE, NULL);
+			add_child(node, $3);
+			Node*  loop_node = init_node(0, t_LOOP_BLOCK, NULL);
+			add_all_children(loop_node, $7, NULL);
+			add_child(node, loop_node);
+			inside_loop --;
+			$$ = node;
+		}
+		;
+
+	for_assign_stmt: { $$ = init_node(0, t_NOP, NULL); }
+		| assign_stmt { $$ = $1; }
+		;
+	for_expr_eval: { $$ = init_node(0, t_NOP, NULL); }
+		| expr_eval { $$ = $1; }
 		;
 	
 	func_stmt:	func_call 		{ 		$$ = $1;			}
@@ -280,17 +331,46 @@ decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock
 			add_all_children(node, $3, NULL);
 			$$ = node;				   }
 		;
-		
+	
+	param_list_with_str: {$$ = NULL; }
+		| param_list1_with_str {$$ = $1;}
+		;
+
+	param_list1_with_str: expr_eval { 
+			$$ = $1;
+		}
+		| expr_eval ',' param_list1_with_str {
+			add_neighbour($1, $3);
+			$$ = $1;
+		}	
+		| '"' str_expr '"' {
+			$$ = $2;
+		}
+		| '"' str_expr '"' ',' param_list1_with_str {
+			add_neighbour($2, $5);
+			$$ = $2;
+		}
+		;
+
 	param_list:				{ $$ = NULL; }
 		|	param_list1	{ $$ = $1; }
 		;
 		
-	param_list1:	expr { $$ = $1; }
-		|	expr ',' param_list1 {
+	param_list1:	expr_eval { 
+			$$ = $1;
+		}
+		|	expr_eval ',' param_list1 {
 			add_neighbour($1, $3);
 			$$ = $1;
 		}	
 		;
+
+	expr_eval: expr {
+		Node * node = init_node(0, (NODETYPE)(t_EXPR), NULL);
+		add_child(node , $1);
+		$$ =node;
+	}
+		; 
 
 	expr	:	NUM 			{
 								$$ = init_node($1, (NODETYPE)(t_NUM), NULL);
@@ -398,10 +478,12 @@ decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock
 
 		;
 	str_expr :  VAR                       { 
-						$$ = init_node((lli)($1), t_STR, free_string); 
+						$$ = init_node((lli)(0), t_STR, NULL); 
+						Node* node = init_node((lli)($1), t_STR, free_string); 
+						add_child($$, node);
 					}
                   | str_expr VAR   { 
-					Node* node = init_node((lli)$1, t_STR, free_string);
+					Node* node = init_node((lli)$2, t_STR, free_string);
 					add_child($1, node);
 					$$ = $1;
 				}
@@ -421,7 +503,7 @@ decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec MainBlock
 					}
 					free($1);
 			  }
-		|	var_expr '[' expr ']'	{ 
+		|	var_expr '[' expr_eval ']'	{ 
 			Node* node = $1;
 			if (node -> n_type != t_STE) {
 				yyerror("How is this possible? var expression must return node_type t_STE");
