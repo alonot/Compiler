@@ -76,6 +76,7 @@ param_list_with_str param_list1_with_str
 			add_neighbour($1, $2);
 			printTreeIdent($1);
 			run($1);
+			printSymbolTables(symbol_tables);
 			free_tree($1);
 		} else {
 			printTreeIdent($2);
@@ -519,7 +520,7 @@ param_list_with_str param_list1_with_str
 				yyerror("");
 			}
 			val -> arr_curr_depth ++;
-			add_child($1, $3);
+			add_child_in_front($1, $3);
 			$$ = $1;	
 		}
 		;

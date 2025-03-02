@@ -32,3 +32,7 @@ Part 3
 * changed write grammer to include string and variables together. 
 * Implemented `read`.
 * added `break` and `continue` to the grammer.
+
+Part 4
+* printed symbol table
+* change in array address calculation

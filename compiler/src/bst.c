@@ -28,6 +28,21 @@ int add_child(Node* node, Node* child) {
     return 0;
 }
 
+int add_child_in_front(Node* node, Node* child) {
+    if (node == NULL) {
+        return -1;
+    }
+    if (child == NULL) {
+        return 0;
+    }
+    child->next = node->first_child;
+    if (node->first_child == NULL) {
+        node->last_child = child;
+    } 
+    node->first_child = child;
+    return 0;
+}
+
 int update_last_child(Node* node) {
     if (node == NULL) {
         return 0;

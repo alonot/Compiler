@@ -101,6 +101,8 @@ int len_at(SymbolTables* symt);
 
 int freeAll(SymbolTables* symt);
 
+void printSymbolTables(SymbolTables *symt);
+
 /**************STACK *************** */
 
 typedef struct __stack {
@@ -175,6 +177,9 @@ Node* init_node(lli val, NODETYPE n_type, void (*free)(lli));
  * makes child.next = NULL
  */
 int add_child(Node* node, Node* child);
+
+int add_child_in_front(Node* node, Node* child);
+
 int add_all_children(Node* node, Node* child, Node* lastchild);
 
 void printTree(Node* node);
