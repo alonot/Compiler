@@ -1,8 +1,0 @@
-
-decl
-  integer a, b;
-enddecl
-
-begin
-  read(a);
-end
