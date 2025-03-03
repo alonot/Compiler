@@ -248,17 +248,17 @@ int add_array_layer(STEntry *ste, int len)
     {
     case DOUBLE:
         free(arrval->arr);
-        arrval->arr = (char *)(malloc(sizeof(double) * arrval->arr_max_pos));
+        arrval->arr = (char *)(calloc(arrval->arr_max_pos,sizeof(double)));
         break;
 
     case INT:
         free(arrval->arr);
-        arrval->arr = (char *)(malloc(sizeof(lli) * arrval->arr_max_pos));
+        arrval->arr = (char *)(calloc(arrval->arr_max_pos,sizeof(lli)));
         break;
 
     case BOOL:
         free(arrval->arr);
-        arrval->arr = (char *)(malloc(sizeof(short) * arrval->arr_max_pos));
+        arrval->arr = (char *)(calloc(arrval->arr_max_pos,sizeof(short)));
         break;
 
     default:
