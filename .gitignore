@@ -4,7 +4,7 @@
 **/*.y.swp
 **/*.l.swp
 **/calculator.out
-**/test**
+**/test/**
 .vscode/**
 **/**.output
 **/bin/compiler

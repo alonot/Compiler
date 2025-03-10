@@ -76,9 +76,7 @@ param_list_with_str param_list1_with_str
 		if ($1 != NULL) {
 			add_neighbour($1, $2);
 			printTreeIdent($1);
-			printf("------------------------------------------------------\nRunning the program\n----------------------------\n");
 			run($1);
-			printf("----------------------------\nProgram Execution finished\n------------------------------------------------------\n");
 			printSymbolTables(symbol_tables);
 			free_tree($1);
 		} else {
