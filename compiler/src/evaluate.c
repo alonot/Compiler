@@ -14,7 +14,7 @@ void assign_val(lli *addr, int dtype, double *val)
         *val = *addr;
         break;
     case BOOL:
-        *(short *)val = *(short *)addr != 0 ;
+        *val = *(short *)addr != 0 ;
         break;
     default: break;
         break;
@@ -61,7 +61,7 @@ void evaluate_function(Node *node, double *val)
         lli* addr;
         lli val;
         int dtype = resolve_ste(child, &addr);
-        printf("Reading data %p\n", addr);
+        // printf("Reading data %p\n", addr);
         freopen("/dev/tty", "r", stdin);
         switch(dtype) {
             case INT:
@@ -130,13 +130,16 @@ void evaluate_assign(Node *node)
     Node *expr_node = var_node->next;
     lli *val_addr;
     int dtype = -1;
+    // printf("Assinging..\n");
     if ((dtype = resolve_ste(var_node, &val_addr)) == -1)
     {
         yyerror("Unable to load a variable\n");
     }
     double val;
     evalute_expr(expr_node->first_child, &val);
+    // printf("With %p %lf\n" ,val_addr,val);
     assign_addr(val_addr, dtype, val);
+    // printf("---\n");
     // printf("%f %p %lld %f\n", val, val_addr, *val_addr, *(double*)val_addr);
 }
 
@@ -153,17 +156,18 @@ int resolve_ste(Node *node, lli **addr)
     int dtype = -1;
     lli *to_retaddr = NULL;
     STEntry *ste = (STEntry *)node->val;
+    // printf("%s ", ste->name);
     switch (ste->dtype)
     {
     case DOUBLE:
         dtype = DOUBLE;
         to_retaddr = (lli *)&(ste->value.dval);
         break;
-    case INT:
+        case INT:
         dtype = INT;
         to_retaddr = (lli *)&(ste->value.lval);
         break;
-    case BOOL:
+        case BOOL:
         dtype = BOOL;
         to_retaddr = (lli *)&(ste->value.lval);
         break;
@@ -207,7 +211,7 @@ int resolve_ste(Node *node, lli **addr)
         case INT:
             to_retaddr = (lli *)(arrval->arr) + pos;
             break;
-        default: break; break;
+        default: break;
         }
     }
     // printf("%s %d %p\n",ste->name, dtype, to_retaddr);
@@ -225,12 +229,15 @@ int evalute_expr(Node *node, double *val)
         return -1;
     int ret_dtype = BOOL;
     double operand1 = 0, operand2 = 0;
-    if (node->first_child)
-    {
-        ret_dtype = max(ret_dtype, evalute_expr(node->first_child, &operand1));
-        if (node->first_child->next)
+    if (node->n_type != t_STE) {
+
+        if (node->first_child)
         {
-            ret_dtype = max(ret_dtype, evalute_expr(node->first_child->next, &operand2));
+            ret_dtype = max(ret_dtype, evalute_expr(node->first_child, &operand1));
+            if (node->first_child->next)
+            {
+                ret_dtype = max(ret_dtype, evalute_expr(node->first_child->next, &operand2));
+            }
         }
     }
     lli* addr;
@@ -238,18 +245,19 @@ int evalute_expr(Node *node, double *val)
     // printf("Evaluating %d\n", node->n_type);
     switch (node->n_type)
     {
+    case t_BOOLEAN:
+        *val = node->val;
+        break;
     case t_NUM_I:
     case t_NUM_F:
         *val = *(double*)node->val;
         break;
     case t_STE:
-        
         if ((dtype = resolve_ste(node, &addr)) == -1)
         {
             yyerror("unable to resolve a variable\n");
         }
         assign_val(addr, dtype, val);
-        // printf("STE: %f\n", *val);
         return dtype;
         break;
     case t_OP:

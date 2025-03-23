@@ -97,7 +97,7 @@ char* node_to_str(Node* node, int* len) {
         *len = snprintf(val, *len, "ASSIGN(=)");
         break;    
         case t_NUM_I: 
-        *len = snprintf(val, *len, "INTEGER(%ld)", (lli)*(double*)(node->val));
+        *len = snprintf(val, *len, "INTEGER(%lld)", (lli)*(double*)(node->val));
         break;    
         case t_NUM_F: 
         *len = snprintf(val, *len, "FLOAT(%lf)", *(double*)(node->val));

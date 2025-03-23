@@ -330,7 +330,7 @@ void free_ste(STEntry* ste) ;
  */
 int run(Node* node);
 
-#define max(a,b) a > b ? a : b;
+#define max(a,b) (a) > (b) ? (a) : (b);
 
 /**
  * assigns the value in addr to the val according to dtype
