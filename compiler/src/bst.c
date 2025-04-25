@@ -113,7 +113,7 @@ char* node_to_str(Node* node, int* len) {
         *len = snprintf(val, *len, "ARRAY_SIZE(%f)", (double)(node->val));
         break;    
         case t_STR: 
-        *len = snprintf(val, *len, "STR(%s)", (char*)(node->val));
+        *len = snprintf(val, *len, "STR(%s)", ((String*)(node->val))->val);
         break;    
         case t_IDENTIFIER: 
         *len = snprintf(val, *len, "IDENTIFIER(%s)", (char*)(node->val));
@@ -165,6 +165,9 @@ char* node_to_str(Node* node, int* len) {
         break;
         case t_FUNC_RET: 
         *len = snprintf(val, *len, "FUNC_RET");
+        break;
+        case t_RETURN: 
+        *len = snprintf(val, *len, "RETURN");
         break;
         case t_PARAM_LIST: 
         *len = snprintf(val, *len, "PARAM_LIST");

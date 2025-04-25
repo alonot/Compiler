@@ -19,6 +19,8 @@
 	#include <stdio.h>
 	#include "../include/includes.h"
 	extern SymbolTable* current_symbol_table;
+	extern HashMap* labels;
+	extern String* label_data;
 	extern int interpret;
 	extern Node* prog_root;
 
@@ -55,9 +57,11 @@
 	double final_val; // double answer
 	struct com_val* pointer; // to store variables pointer
 	struct __tree* node; // bst tree
+	struct _string* str; // str tree
 }
 
 %token <name> VAR 
+%token <str> STR 
 %token <num> NUM
 %token <num> NUM_FLOAT
 %token T_INT T_BOOL T_DOUBLE 
@@ -71,7 +75,10 @@
 %left '<' '>'
 
 %type <name> func_name
-%type <node> expr var_expr str_expr id
+
+%type <str> str_expr
+
+%type <node> expr var_expr id
 func_body func_call for_assign_stmt for_expr_eval
 func_stmt statement stmt_list assign_stmt cond_stmt list decl 
 decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec expr_eval
@@ -213,6 +220,10 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 		;
 		
 	Fdef	:	data_type func_name {
+			lli label;
+			if ((label = get(labels, $2)) == LONG_MIN || (char*)label == NULL) {
+				insert(labels, $2, $2);
+			}
 			current_symbol_table = add_sym_tables(current_symbol_table, $2, (void (*)(char *))free);
 		} '(' arg_list ')' '{' Ldecl_sec func_body '}'	{	
 			Node * node = init_node((lli)current_symbol_table, (NODETYPE)(t_FUNC_DEF), (void (*)(lli))free_symbol_table);
@@ -245,7 +256,7 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 		;
 
 	ret_stmt:	RETURN expr_eval ';'	{ 		
-					Node * node = init_node((lli)"RETURN", (NODETYPE)(t_OTHER), NULL);
+					Node * node = init_node((lli)NULL, (NODETYPE)(t_RETURN), NULL);
 					add_all_children(node, $2, NULL);
 					$$ = node; 
 				}
@@ -399,12 +410,42 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 			add_neighbour($1, $3);
 			$$ = $1;
 		}	
-		| '"' str_expr '"' {
-			$$ = $2;
+		| STR {
+			Node* node = init_node((lli)$1, (NODETYPE)(t_STR), (void (*)(lli))(freeString));
+			lli label;
+			if ((label = get(labels, $1 -> val)) == LONG_MIN || (char*)label == NULL) {
+				char* val = (char*)(calloc(6,sizeof(char)));
+				val[0]= '$';
+				val[1]= 'L';
+				val[2]= 'C';
+				snprintf(val + 3, 3, "%d", labels->len);
+				insert(labels, $1 -> val, val);
+				write_instr_val(label_data, 0,"%s:", val);
+				write_instr_val(label_data, 1,"%-7s\t\"%s\\000\"", ".ascii", $1 -> val);
+			}
+			Node * expr_node = init_node(0, (NODETYPE)(t_EXPR), NULL);
+			add_child(expr_node, node);
+			expr_node -> depth = node -> depth + 1;
+			$$ = expr_node;
 		}
-		| '"' str_expr '"' ',' param_list1_with_str {
-			add_neighbour($2, $5);
-			$$ = $2;
+		| STR ',' param_list1_with_str {
+			Node* node = init_node((lli)$1, (NODETYPE)(t_STR), (void (*)(lli))(freeString));
+			lli label;
+			if (((label = get(labels, $1 -> val )) == LONG_MIN) || ((char*)label == NULL )) {
+				char* val = (char*)(calloc(6,sizeof(char)));
+				val[0]= '$';
+				val[1]= 'L';
+				val[2]= 'C';
+				snprintf(val + 3, 3, "%d", labels->len);
+				insert(labels, (lli)($1 -> val), (lli)val);
+				write_instr_val(label_data, 0,"%s:", val);
+				write_instr_val(label_data, 1,"%-7s\t\"%s\\000\"", ".ascii", $1 -> val);
+			}
+			Node * expr_node = init_node(0, (NODETYPE)(t_EXPR), NULL);
+			add_child(expr_node, node);
+			expr_node -> depth = node -> depth + 1;
+			add_neighbour(expr_node, $3);
+			$$ = node;
 		}
 		;
 
@@ -424,6 +465,8 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 								}
 		| NUM_FLOAT 			{
 								// fprintf(yyout,"%lf\n",$1);
+								// to be stored as variable
+
 								double* val = (double*) (malloc(sizeof(double)));
 								*val = $1;
 								$$ = init_node((lli)val, (NODETYPE)(t_NUM_F), free_string);
@@ -580,16 +623,14 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 
 		;
 	str_expr :  VAR                       { 
-						$$ = init_node((lli)(0), t_STR, NULL); 
-						Node* node = init_node((lli)($1), t_STR, free_string); 
-						add_child($$, node);
-					}
-                  | str_expr VAR   { 
-					Node* node = init_node((lli)$2, t_STR, free_string);
-					add_child($1, node);
-					$$ = $1;
-				}
-                ;
+		String* str = init_string($1, -1);
+		$$ = str;
+	}
+	| str_expr VAR   { 
+		add_str($1, " " , 1);
+		add_str($1, $2 , -1);
+		$$ = $1;
+	};
 	
 	var_expr:	VAR	{
 					STEntry* ste = (STEntry*)value_Of(current_symbol_table, (lli)$1);

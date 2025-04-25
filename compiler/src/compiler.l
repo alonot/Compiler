@@ -18,10 +18,13 @@
 %{
 	#include "string.h"
 	#include "y.tab.h"
+	#include "../include/includes.h"
 	char* filename;
+	struct _string* str;
 	int 	lineno = 1;
 	int     wflag;
-
+	int comments = 0;
+	int in_string = 0;
 %}
 
 %option noyywrap
@@ -66,18 +69,25 @@ continue			      { return CONTINUE; }
 
 {letter}({letter}|{digit})*	{ yylval.name = strdup(yytext);return VAR; /* variable name */}
 [-+*/=()><;,\{\}\[\]\%]         { return yytext[0]; }
-			
-["]                             { return yytext[0]; }
-"\\n"                           { }
-[\n]					{ lineno ++; }
+("//".*\n)							{}
+\"([^\"\\]|\\.)*\"                             { 	
+	yytext[yyleng - 1] = '\0';
+	str = init_string(yytext + 1, yyleng - 2);
+	yylval.str = str; return STR;
+}
+[\n]					{ lineno ++; comments = 0; }
 [ \t]
-.				{ fprintf(yyout,"Unrecognized token : %s\n", yytext); exit(1); }		
+.				{ 
+	fprintf(yyout,"Unrecognized token : %s\n", yytext); exit(1); 
+	
+}		
 
 %%
-#include "../include/includes.h"
 #include <unistd.h>
 SymbolTable* current_symbol_table;
 Node* prog_root = NULL;
+HashMap* labels;
+String* label_data;
 FILE* debug;
 int interpret = 0;
 
@@ -165,6 +175,8 @@ int main(int argc , char* argv[]){
 	}
 
 	current_symbol_table = add_sym_tables(NULL, "global", NULL);
+	labels = init_hash_map(hash_string, compare_string);
+	label_data = init_string("", 0);
 	yyparse();
 
 	// prog_root -> neighbour  is prog_block
@@ -172,7 +184,7 @@ int main(int argc , char* argv[]){
 	// global -> 4th child is func_body
 	Node* global = prog_root->next->first_child->first_child;
 	Node* global_body = global->next->next->next;
-	add_child(global_body, call_main());
+	/* add_child(global_body, call_main()); */
 
 	Node* global_decl = global->next->next;
 	global->next->next = prog_root;
@@ -182,8 +194,10 @@ int main(int argc , char* argv[]){
 	global_decl -> next = NULL;
 
 	printTreeIdent(prog_root);
+	fflush(debug);
 	free(global_decl);
-	
+
+	instr_out("%s\n", label_data->val);
 	if (interpret == 1) {
 		fprintf(yyout,"------------------------------------------------------\nRunning the program\n----------------------------\n");
 		run(prog_root);
@@ -194,8 +208,9 @@ int main(int argc , char* argv[]){
 		/* fprintf(yyout,"----------------------------\nCompiled\n------------------------------------------------------\n"); */
 	}
 	printSymbolTables(prog_root);
-	free_tree(prog_root);
 
+	free_tree(prog_root);
+	freeString(label_data);
 	fclose(debug);
 	fclose(yyout);
 	fclose(yyin);

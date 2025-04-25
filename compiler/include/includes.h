@@ -222,6 +222,7 @@ typedef enum __ty {
     t_BOOLEAN,
     t_PROG,
     t_OTHER,
+    t_RETURN,
     t_KEYWORD,
     t_EXPR,
     t_BREAK,
@@ -454,3 +455,6 @@ int evalute_expr(Node *node, double *val);
 void assign_addr(lli *addr, int dtype, double val);
 
 /************************************ */
+
+extern String* label_data;
+extern HashMap* labels;

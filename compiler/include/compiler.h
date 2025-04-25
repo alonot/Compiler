@@ -35,6 +35,7 @@ typedef struct __instr {
     int curr_size;
     int gen_code;
     int call_window_size; // store the max size of window required for a function call
+    String* return_label; 
 } Instructions_info;
 
 typedef struct STEntry STEntry;
@@ -46,6 +47,7 @@ typedef struct __reg_promise {
     int offset; // if actual register had a register then its value will be stored in this in case of spill
     int loc; // is NO_ENTRY, else location from sp (if reg is NULL)
     STEntry* ste; // if set to NULL then this is result of an expression and should be saved on the stack
+    String* label; // label value
 } RegPromise;
 
 int compile(Node* node);
@@ -151,3 +153,5 @@ void __free_regpromise(RegPromise* reg_promise);
 void write_instr(Instructions_info* instr_info, const char* format, ...);
 
 void save_n_free(Register* reg, Instructions_info* instructions_info);
+
+void write_instr_val(String* instr_val, int tab, const char* format, ...);

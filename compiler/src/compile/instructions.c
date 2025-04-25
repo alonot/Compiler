@@ -23,11 +23,12 @@ void addiu(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, lli im
     if (immediate > MAX_32_BIT) {
         // printf("kk\n");
         RegPromise* imm_reg = get_immediate(instr_info, immediate);
-        // printf("done\n");
         addu(instr_info, rd, rs1, imm_reg);
         __free_regpromise(imm_reg);
     } else {
-        reload_reg(rd, instr_info); reload_reg(rs1, instr_info);
+        reload_reg(rd, instr_info); 
+        // printf("done\n");
+        reload_reg(rs1, instr_info);
         write_instr( instr_info, "%-7s\t%s,\t%s,\t%d", "addiu", rd->reg->name, rs1->reg->name, immediate);
     }
 }
