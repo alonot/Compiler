@@ -14,10 +14,12 @@ void __free_regpromise(RegPromise* reg_promise) ;
 
 
 void clear_offset(RegPromise* reg_promise) {
-    if (reg_promise ->immediate || reg_promise->ste) {
+    if (reg_promise->reg == NULL) {
         return;
     }
     reg_promise->reg->offset = NO_ENTRY;
+    reg_promise->immediate = NULL;
+    reg_promise->ste = NULL;
 }
 
 /**
@@ -77,6 +79,25 @@ void write_instr(Instructions_info* instr_info, const char* format, ...) {
     add_str(instr_val, "\n", 1);
 }
 
+void __write_instr(Instructions_info* instr_info, const char* format, ...) {
+    if (instr_info->gen_code == 0) {
+        return;
+    }
+
+    String* instr_val = (String*)top_stack(instr_info->instructions_stack);
+    char buffer[512];
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+
+    if (len >= sizeof(buffer)) {
+        fprintf(stderr, "Formatted string too long\n");
+        return;
+    }
+    add_str(instr_val, buffer, len);
+}
+
 void reload_reg(RegPromise* reg_promise, Instructions_info* instr_info) {
     if (reg_promise->immediate != NULL) {
         // immediate
@@ -114,11 +135,12 @@ void reload_reg(RegPromise* reg_promise, Instructions_info* instr_info) {
 
 
 void reload_reg_withoffset(RegPromise* reg, Instructions_info* instr_info) {
-    if (reg == NULL || reg->immediate || reg->ste) return;
+    if (reg == NULL || reg->immediate) return;
     reload_reg(reg,instr_info);
     if (reg->reg->offset != NO_ENTRY) {
         loadw(instr_info,reg, reg);
     }
+    // printf("%s %d\n", reg->reg->name, reg->reg->offset);
 }
 
 
@@ -148,7 +170,7 @@ void initialize_registers() {
     for (int i = 0;i < 2; i ++ ) {
         registers[pos ++] = init_reg('v', i);
     }
-    for (int i = 0;i < 8; i ++ ) {
+    for (int i = 1;i < 8; i ++ ) {
         registers[pos ++] = init_reg('s', i);
     }
     zero_reg = init_reg('0', -'0');
@@ -268,7 +290,7 @@ void load_label(Instructions_info* instr_info, RegPromise* rd, char* label) {
 void save_n_free(Register* reg, Instructions_info* instructions_info) {
     // code to save the reg
     if (reg->reg_promise == NULL) {
-        printf("%s %d\n", reg->name, reg->occupied);
+      // printf("%s %d\n", reg->name, reg->occupied);
         yyerror("Ari baap re\n");
     }
     if (reg->reg_promise->ste == NULL) {
@@ -368,6 +390,20 @@ void check_n_add_extra(Instructions_info* instr_info, Register* reg) {
 }
 
 /**
+ * Frees if required and return the same register
+ */
+RegPromise* get_specific_register_promise(Instructions_info* instructions_info, int pos) {
+    Register* reg = __get_free_register(registers, instructions_info, pos , pos + 1, 1);
+    if (pos >= 16 && pos < 23) {
+        check_n_add_extra(instructions_info, reg);
+    }
+    enqueue_queue(register_usage_queue, (lli)reg);
+    reg->occupied = 1;
+    RegPromise* reg_promise =  init_reg_promise(reg);
+    return reg_promise;
+}
+
+/**
  * returns a // free register... 
  * if none is // free,
     * check == 0 ,  returns any but the given exempt register
@@ -379,7 +415,6 @@ void check_n_add_extra(Instructions_info* instr_info, Register* reg) {
  * it marks the register occupied so its responsibility of client to // free this.
  */
 RegPromise* get_free_register_promise(Instructions_info* instructions_info) {
-    // printf("h\n");
     Register* reg = __get_free_register(registers, instructions_info, 0 , 16, 0);
     if (reg == NULL) {
         reg = __get_free_register(registers, instructions_info, 16 , 23, 0);
@@ -392,12 +427,9 @@ RegPromise* get_free_register_promise(Instructions_info* instructions_info) {
         reg = __get_free_register(registers, instructions_info, 16, 23, 1);
         check_n_add_extra(instructions_info, reg);
     }
-    // printf("nn\n");
     enqueue_queue(register_usage_queue, (lli)reg);
-    // printf("aa\n");
     reg->occupied = 1;
     RegPromise* reg_promise =  init_reg_promise(reg);
-    // printf("q\n");
     return reg_promise;
 }
 
@@ -490,7 +522,7 @@ RegPromise* get_ste(Node* node, SymbolTable* symt, Instructions_info* instructio
         ste->ref_reg->reg->offset = NO_ENTRY;
         addu(instructions_info, pos_reg, pos_reg, ste->ref_reg);
         // got the address in pos_reg
-        printf("%s:%d\n",ste->name, ste->loc_from_ref_reg);
+      // printf("%s:%d\n",ste->name, ste->loc_from_ref_reg);
         pos_reg->reg->offset = ste->loc_from_ref_reg;
     } else {
         // then just attach and return the ste
@@ -504,6 +536,98 @@ RegPromise* get_ste(Node* node, SymbolTable* symt, Instructions_info* instructio
     
     
     return pos_reg;
+}
+
+
+RegPromise* handle_increament(Instructions_info* instructions_info, RegPromise* reg1, int op) {
+    RegPromise* final_reg, *temp_reg, * new_reg;
+    switch(op) {
+        case t_PLUSPLUS_PRE:
+            if (reg1 == NULL) {
+                yyerror("no operand for evaluation\n");
+            }
+            // reg1 is ste
+            new_reg = get_free_register_promise(instructions_info);
+            if (reg1->ste != NULL) {
+                STEntry* ste = reg1->ste;
+                __free_regpromise(reg1);
+                reg1 = ste->ref_reg;
+                reg1->reg->offset = ste->loc_from_ref_reg;
+            }
+            loadw(instructions_info, new_reg, reg1); // ld t = (var)
+            addiu(instructions_info, new_reg, new_reg, 1); // addi t ,t , 1
+            storew(instructions_info, new_reg, reg1); // st t , (var)
+            // return (var)
+            // if reg1 was an expression(in case of array) the new_reg will have nul as ste
+            new_reg->ste = reg1->ste;
+            __free_regpromise(reg1);
+            final_reg = new_reg;
+            break;
+        case t_PLUSPLUS_POST:
+            if (reg1 == NULL) {
+                yyerror("no operand for evaluation\n");
+            }
+            // reg1 is ste
+            if (reg1->ste != NULL) {
+                STEntry* ste = reg1->ste;
+                __free_regpromise(reg1);
+                reg1 = ste->ref_reg;
+                reg1->reg->offset = ste->loc_from_ref_reg;
+            }
+            temp_reg = get_free_register_promise(instructions_info);
+            new_reg = get_free_register_promise(instructions_info);
+            loadw(instructions_info, new_reg, reg1); // ld t , (var)
+            addiu(instructions_info, temp_reg, new_reg, 1); // add t1 , t, 1
+            storew(instructions_info, temp_reg, reg1); // st t1, (var)
+            // return t
+            __free_regpromise(reg1);
+            __free_regpromise(temp_reg);
+            final_reg = new_reg;
+            break;
+        case t_MINUSMINUS_PRE:
+            if (reg1 == NULL) {
+                yyerror("no operand for evaluation\n");
+            }
+            // reg1 is ste
+            new_reg = get_free_register_promise(instructions_info);
+            if (reg1->ste != NULL) {
+                STEntry* ste = reg1->ste;
+                __free_regpromise(reg1);
+                reg1 = ste->ref_reg;
+                reg1->reg->offset = ste->loc_from_ref_reg;
+            }
+            loadw(instructions_info, new_reg, reg1); // ld t , (var)
+            subiu(instructions_info, new_reg, new_reg, 1); // sub t, t, 1
+            storew(instructions_info, new_reg, reg1); // sd t , (var)
+            new_reg->ste = reg1->ste;
+            __free_regpromise(reg1);
+            final_reg = new_reg;
+            break;
+        case t_MINUSMINUS_POST:
+            if (reg1 == NULL) {
+                yyerror("no operand for evaluation\n");
+            }
+            // reg1 is ste
+            if (reg1->ste != NULL) {
+                STEntry* ste = reg1->ste;
+                __free_regpromise(reg1);
+                reg1 = ste->ref_reg;
+                reg1->reg->offset = ste->loc_from_ref_reg;
+            }
+            temp_reg = get_free_register_promise(instructions_info);
+            new_reg = get_free_register_promise(instructions_info);
+            loadw(instructions_info, new_reg, reg1); // ld t , (var)
+            subiu(instructions_info, temp_reg, new_reg, 1); // add t1 , t, 1
+            storew(instructions_info, temp_reg, reg1); // st t1, (var)
+            // return t
+            __free_regpromise(reg1);
+            __free_regpromise(temp_reg);
+            final_reg = new_reg;
+            break;
+        default:
+        break;
+    }
+    return final_reg;
 }
 
 
@@ -563,9 +687,6 @@ RegPromise* get_expression(Node* node, SymbolTable* symt, Instructions_info* ins
         {
         case '+':
             // both have registers
-            if (reg2->reg != NULL && reg2->reg->offset != 0) {
-                printf("GOT\n");
-            }
             reload_reg_withoffset(reg1,instructions_info);
             reload_reg_withoffset(reg2,instructions_info);
             addu(instructions_info, reg2, reg1,reg2);
@@ -586,19 +707,19 @@ RegPromise* get_expression(Node* node, SymbolTable* symt, Instructions_info* ins
             reload_reg_withoffset(reg1,instructions_info);
             reload_reg_withoffset(reg2,instructions_info);
             mult(instructions_info, reg2, reg1);
+            clear_offset(reg2);
             mflo(instructions_info, reg2);
             __free_regpromise(reg1);
             final_reg = reg2;
-            clear_offset(final_reg);
             break;
             case '/':
             reload_reg_withoffset(reg1,instructions_info);
             reload_reg_withoffset(reg2,instructions_info);
             mips_div(instructions_info, reg1, reg2);
+            clear_offset(reg2);
             mflo(instructions_info, reg2);
             __free_regpromise(reg1);
             final_reg = reg2;
-            clear_offset(final_reg);
             break;
         case '%':
             if (reg1->immediate && reg2->immediate) {
@@ -607,11 +728,12 @@ RegPromise* get_expression(Node* node, SymbolTable* symt, Instructions_info* ins
                 reload_reg_withoffset(reg1,instructions_info);
                 reload_reg_withoffset(reg2,instructions_info);
                 mips_div(instructions_info, reg1, reg2);
+                clear_offset(reg2);
+                // printf("MOD: %p %p\n", reg2->immediate, reg2->reg);
                 mfhi(instructions_info, reg2);
             }
             __free_regpromise(reg1);
             final_reg = reg2;
-            clear_offset(final_reg);
             break;
         case '&':
             reload_reg_withoffset(reg1,instructions_info);
@@ -656,6 +778,11 @@ RegPromise* get_expression(Node* node, SymbolTable* symt, Instructions_info* ins
         default: break;
         }
         break;
+
+    case t_FUNC_CALL:
+    handle_function_call(node, symt, instructions_info);
+    final_reg = get_specific_register_promise(instructions_info,14);
+    break;
     case t_EE:
         reload_reg_withoffset(reg1,instructions_info);
         reload_reg_withoffset(reg2,instructions_info);
@@ -702,89 +829,9 @@ RegPromise* get_expression(Node* node, SymbolTable* symt, Instructions_info* ins
         final_reg = reg1;
         clear_offset(final_reg);
         break;
-    case t_PLUSPLUS_PRE:
-        if (reg1 == NULL) {
-            yyerror("no operand for evaluation\n");
-        }
-        // reg1 is ste
-        new_reg = get_free_register_promise(instructions_info);
-        if (reg1->ste != NULL) {
-            STEntry* ste = reg1->ste;
-            __free_regpromise(reg1);
-            reg1 = ste->ref_reg;
-            reg1->reg->offset = ste->loc_from_ref_reg;
-        }
-        loadw(instructions_info, new_reg, reg1); // ld t = (var)
-        addiu(instructions_info, new_reg, new_reg, 1); // addi t ,t , 1
-        storew(instructions_info, new_reg, reg1); // st t , (var)
-        // return (var)
-        // if reg1 was an expression(in case of array) the new_reg will have nul as ste
-        new_reg->ste = reg1->ste;
-        __free_regpromise(reg1);
-        final_reg = new_reg;
-        break;
-    case t_PLUSPLUS_POST:
-        if (reg1 == NULL) {
-            yyerror("no operand for evaluation\n");
-        }
-        // reg1 is ste
-        if (reg1->ste != NULL) {
-            STEntry* ste = reg1->ste;
-            __free_regpromise(reg1);
-            reg1 = ste->ref_reg;
-            reg1->reg->offset = ste->loc_from_ref_reg;
-        }
-        temp_reg = get_free_register_promise(instructions_info);
-        new_reg = get_free_register_promise(instructions_info);
-        loadw(instructions_info, new_reg, reg1); // ld t , (var)
-        addiu(instructions_info, temp_reg, new_reg, 1); // add t1 , t, 1
-        storew(instructions_info, temp_reg, reg1); // st t1, (var)
-        // return t
-        __free_regpromise(reg1);
-        __free_regpromise(temp_reg);
-        final_reg = new_reg;
-        break;
-    case t_MINUSMINUS_PRE:
-        if (reg1 == NULL) {
-            yyerror("no operand for evaluation\n");
-        }
-        // reg1 is ste
-        new_reg = get_free_register_promise(instructions_info);
-        if (reg1->ste != NULL) {
-            STEntry* ste = reg1->ste;
-            __free_regpromise(reg1);
-            reg1 = ste->ref_reg;
-            reg1->reg->offset = ste->loc_from_ref_reg;
-        }
-        loadw(instructions_info, new_reg, reg1); // ld t , (var)
-        subiu(instructions_info, new_reg, new_reg, 1); // sub t, t, 1
-        storew(instructions_info, new_reg, reg1); // sd t , (var)
-        new_reg->ste = reg1->ste;
-        __free_regpromise(reg1);
-        final_reg = new_reg;
-        break;
-    case t_MINUSMINUS_POST:
-        if (reg1 == NULL) {
-            yyerror("no operand for evaluation\n");
-        }
-        // reg1 is ste
-        if (reg1->ste != NULL) {
-            STEntry* ste = reg1->ste;
-            __free_regpromise(reg1);
-            reg1 = ste->ref_reg;
-            reg1->reg->offset = ste->loc_from_ref_reg;
-        }
-        temp_reg = get_free_register_promise(instructions_info);
-        new_reg = get_free_register_promise(instructions_info);
-        loadw(instructions_info, new_reg, reg1); // ld t , (var)
-        subiu(instructions_info, temp_reg, new_reg, 1); // add t1 , t, 1
-        storew(instructions_info, temp_reg, reg1); // st t1, (var)
-        // return t
-        __free_regpromise(reg1);
-        __free_regpromise(temp_reg);
-        final_reg = new_reg;
-        break;
-    default: break;
+    default: 
+        final_reg = handle_increament(instructions_info,reg1, node->n_type);
+    break;
     }
     // fprintf(yyout,"EXPR: %f\n", *val);
     // printf("final_reg\n");
@@ -1054,15 +1101,17 @@ int handle_function_call(Node* node, SymbolTable* symt, Instructions_info* instr
         int start = store_arguments(instr_info, param_queue, 0, 10, 0);
         instr_info->call_window_size =  max(start, instr_info->call_window_size);
         free_queue(param_queue);
-        RegPromise* t9_reg = init_reg_promise(registers[23]);
+        RegPromise* t9_reg = get_specific_register_promise(instr_info,9);
         load_label(instr_info, t9_reg, name);
         write_instr(instr_info, "%-7s\t%s\n\tnop","jalr",t9_reg->reg->name);
+        __free_regpromise(t9_reg);
     }
+    return 0;
 }
 
 int handle_function_return(Node* node, SymbolTable* symt, Instructions_info* instr_info) {
     if (node == NULL || node->n_type != t_RETURN) {
-        yyerror("Wrong Node for return statement");
+        yyerror("Wrong Node for return statement\n");
     }
 
     Node *expr_node = node->first_child;
@@ -1080,21 +1129,306 @@ int handle_function_return(Node* node, SymbolTable* symt, Instructions_info* ins
     } else {
         reload_reg_withoffset(expr_promise,instr_info);
     }
-    RegPromise* v0_promise = init_reg_promise(registers[14]); // v0
-    if (expr_promise->reg->offset == NO_ENTRY) {
-        move(instr_info, v0_promise, expr_promise);
-    } else {
-        storew(instr_info, v0_promise, expr_promise);
+    if (expr_promise->reg != registers[14]) {
+        RegPromise* v0_promise = get_specific_register_promise(instr_info,14); // v0
+        if (expr_promise->reg->offset == NO_ENTRY) {
+            move(instr_info, v0_promise, expr_promise);
+        } else {
+            storew(instr_info, v0_promise, expr_promise);
+        }
+        __free_regpromise(v0_promise);
     }
-    free(v0_promise);
     __free_regpromise(expr_promise);
     
     write_instr(instr_info, "%-7s\t%s\n\tnop", "j", instr_info->return_label->val);
 }
 
+int handle_cond_stmt(Node* node, SymbolTable* symt, Instructions_info* instr_info) {
+    if (node == NULL || node->n_type != t_COND) {
+        yyerror("Wrong Node for Condition statement\n");
+    }
+
+    Node *expr_node = node->first_child;
+    Node* if_block = expr_node->next;
+    Node* else_block = if_block->next;
+
+    String* if_label = init_string(instr_info->return_label->val, -1);
+    add_str(if_label, "_if", 3);
+    char buffer[10];
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(if_label, buffer, -1);
+
+    String* end_label = init_string(instr_info->return_label->val, -1);
+    add_str(end_label, "_if_end", 7);
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(end_label, buffer, -1);
+
+    
+    RegPromise* expr_promise = get_expression(expr_node->first_child, symt, instr_info);
+
+    if (expr_promise->immediate != NULL) {
+        // this is expression not a register
+        RegPromise* new_reg = get_free_register_promise(instr_info);
+        // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
+        addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
+        // printf("pp\n");
+        __free_regpromise(expr_promise);
+        expr_promise = new_reg;
+    } else {
+        reload_reg_withoffset(expr_promise,instr_info);
+    }
+
+
+    instr_info->label_count ++;
+    // check and jump
+
+    bne(instr_info, expr_promise, zero_reg_promise, if_label->val); // if not equal to zero i.e. true
+    __free_regpromise(expr_promise);
+    if (else_block) {
+        handle_statement(else_block->first_child, symt, instr_info);
+        // else label
+    }
+    // jump to end
+
+    write_instr(instr_info, "%-7s\t%s\n\tnop\n", "j", end_label->val);
+    
+    
+    __write_instr(instr_info, "%s:\n", if_label->val);
+    handle_statement(if_block->first_child, symt, instr_info);
+    
+    // end label
+    __write_instr(instr_info, "\n%s:\n", end_label->val);
+
+    freeString(if_label);
+    freeString(end_label);
+}
+
+int handle_while_stmt(Node* node, SymbolTable* symt, Instructions_info* instr_info) {
+    if (node == NULL || node->n_type != t_WHILE) {
+        yyerror("Wrong Node for While statement\n");
+    }
+
+    Node *cond_node = node->first_child;
+    Node* loop_block = cond_node->next;
+
+    String* loop_label = init_string(instr_info->return_label->val, -1);
+    add_str(loop_label, "_while", 3);
+    char buffer[10];
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(loop_label, buffer, -1);
+
+    String* end_label = init_string(instr_info->return_label->val, -1);
+    add_str(end_label, "_while_end", 10);
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(end_label, buffer, -1);
+
+    instr_info->label_count ++;
+
+    instr_info->loop_label = loop_label;
+    instr_info->loop_end_label = end_label;
+
+    __write_instr(instr_info, "%s:\n", loop_label->val);
+    
+    RegPromise* expr_promise = get_expression(cond_node->first_child, symt, instr_info);
+    if (expr_promise != NULL) {
+        // code to check for end
+        if (expr_promise->immediate != NULL) {
+            // this is expression not a register
+            RegPromise* new_reg = get_free_register_promise(instr_info);
+            // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
+            addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
+            // printf("pp\n");
+            __free_regpromise(expr_promise);
+            expr_promise = new_reg;
+        } else {
+            reload_reg_withoffset(expr_promise,instr_info);
+        }
+        // if result was false . i.e. equation == 0
+        beq(instr_info, expr_promise, zero_reg_promise, end_label->val);
+        __free_regpromise(expr_promise);
+    }
+    handle_statements(loop_block->first_child, symt,instr_info);
+    
+    // jump back
+    write_instr(instr_info, "%-7s\t%s\n\tnop\n", "j", loop_label->val);
+    
+    // end label
+    __write_instr(instr_info, "\n%s:\n", end_label->val);
+
+    instr_info->loop_label = instr_info->loop_end_label = NULL;
+    freeString(loop_label);
+    freeString(end_label);
+}
+
+int handle_do_while_stmt(Node* node, SymbolTable* symt, Instructions_info* instr_info) {
+    if (node == NULL || node->n_type != t_DOWHILE) {
+        yyerror("Wrong Node for Do While statement\n");
+    }
+
+    Node *cond_node = node->first_child;
+    Node* loop_block = cond_node->next;
+
+    String* loop_label = init_string(instr_info->return_label->val, -1);
+    add_str(loop_label, "_dowhile", 8);
+    char buffer[10];
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(loop_label, buffer, -1);
+    
+    String* loop_check_label = init_string(instr_info->return_label->val, -1);
+    add_str(loop_check_label, "_dowhile_check", 14);
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(loop_check_label, buffer, -1);
+
+    String* end_label = init_string(instr_info->return_label->val, -1);
+    add_str(end_label, "_dowhile_end", 12);
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(end_label, buffer, -1);
+
+    instr_info->label_count ++;
+
+    instr_info->loop_label = loop_check_label;
+    instr_info->loop_end_label = end_label;
+
+    __write_instr(instr_info, "%s:\n", loop_label->val);
+
+    handle_statements(loop_block->first_child, symt,instr_info);
+    
+    __write_instr(instr_info, "%s:\n", loop_check_label->val);
+    RegPromise* expr_promise = get_expression(cond_node->first_child, symt, instr_info);
+    if (expr_promise != NULL) {
+        // code to check for end
+        if (expr_promise->immediate != NULL) {
+            // this is expression not a register
+            RegPromise* new_reg = get_free_register_promise(instr_info);
+            // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
+            addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
+            // printf("pp\n");
+            __free_regpromise(expr_promise);
+            expr_promise = new_reg;
+        } else {
+            reload_reg_withoffset(expr_promise,instr_info);
+        }
+        // if result was false . i.e. equation == 0
+        beq(instr_info, expr_promise, zero_reg_promise, end_label->val);
+        __free_regpromise(expr_promise);
+    }
+    // jump back
+
+    write_instr(instr_info, "%-7s\t%s\n\tnop\n", "j", loop_label->val);
+    
+    // end label
+    __write_instr(instr_info, "\n%s:\n", end_label->val);
+
+    instr_info->loop_label = instr_info->loop_end_label = NULL;
+    freeString(loop_label);
+    freeString(loop_check_label);
+    freeString(end_label);
+}
+
+int handle_for_stmt(Node* node, SymbolTable* symt, Instructions_info* instr_info) {
+    if (node == NULL || node->n_type != t_FOR) {
+        yyerror("Wrong Node for For statement\n");
+    }
+
+    Node *assign_node = node->first_child;
+    Node *cond_node = assign_node->next;
+    Node* update_block = cond_node->next;
+    Node* loop_block = update_block->next;
+
+    String* loop_label = init_string(instr_info->return_label->val, -1);
+    add_str(loop_label, "_for", 4);
+    char buffer[10];
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(loop_label, buffer, -1);
+
+    String* loop_update_label = init_string(instr_info->return_label->val, -1);
+    add_str(loop_update_label, "_for_update", 10);
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(loop_update_label, buffer, -1);
+
+    String* end_label = init_string(instr_info->return_label->val, -1);
+    add_str(end_label, "_for_end", 7);
+    buffer[snprintf(buffer, 10, "%d", instr_info->label_count)] = '\0'; // RISK
+    add_str(end_label, buffer, -1);
+
+    instr_info->label_count ++;
+
+    instr_info->loop_label = loop_update_label;
+    instr_info->loop_end_label = end_label;
+    
+    handle_assignment(assign_node, symt,instr_info);
+
+    __write_instr(instr_info, "%s:\n", loop_label->val);
+    
+    RegPromise* expr_promise = get_expression(cond_node->first_child, symt, instr_info);
+    if (expr_promise != NULL) {
+        // code to check for end
+        if (expr_promise->immediate != NULL) {
+            // this is expression not a register
+            RegPromise* new_reg = get_free_register_promise(instr_info);
+            // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
+            addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
+            // printf("pp\n");
+            __free_regpromise(expr_promise);
+            expr_promise = new_reg;
+        } else {
+            reload_reg_withoffset(expr_promise,instr_info);
+        }
+        // if result was false . i.e. equation == 0
+        beq(instr_info, expr_promise, zero_reg_promise, end_label->val);
+        __free_regpromise(expr_promise);
+    }
+    // jump back
+    handle_statements(loop_block->first_child, symt,instr_info);
+    
+    __write_instr(instr_info, "%s:\n", loop_update_label->val);
+    handle_statements(update_block, symt, instr_info);
+
+    write_instr(instr_info, "%-7s\t%s\n\tnop\n", "j", loop_label->val);
+
+    // end label
+    __write_instr(instr_info, "\n%s:\n", end_label->val);
+
+    instr_info->loop_label = instr_info->loop_end_label = NULL;
+    freeString(loop_label);
+    freeString(loop_update_label);
+    freeString(end_label);
+}
+
+void handle_increament_statement(Node* node, SymbolTable* symt, Instructions_info* instr_info) {
+    if (node == NULL || node->n_type != t_INC_STMT) {
+        yyerror("Wrong node received for increament Statement\n");
+    }
+    // this will handle the node
+    RegPromise* reg1 = get_expression(node->first_child, symt, instr_info);
+    __free_regpromise(reg1);
+}
+
+void handle_break(Node* node, SymbolTable* symt, Instructions_info* instr_info) {
+    if (node == NULL || node->n_type != t_BREAK) {
+        yyerror("Wrong node received for Break Statement\n");
+    }
+    // this will handle the node
+    if (instr_info->loop_label == NULL) {
+        yyerror("Can't use break outside loop\n");
+    }
+    write_instr(instr_info, "%-7s\t%s\n\tnop\n", "j", instr_info->loop_end_label->val);
+}
+
+void handle_continue(Node* node, SymbolTable* symt, Instructions_info* instr_info) {
+    if (node == NULL || node->n_type != t_CONTINUE) {
+        yyerror("Wrong node received for Continue Statement\n");
+    }
+    // this will handle the node
+    if (instr_info->loop_label == NULL) {
+        yyerror("Can't use continue outside loop\n");
+    }
+    write_instr(instr_info, "%-7s\t%s\n\tnop\n", "j", instr_info->loop_label->val);
+}
+
+
 int handle_statement(Node* node, SymbolTable* symt, Instructions_info* instructions_info) {
     if (node == NULL) {
-        fprintf(stderr, "Wrong node received for a Statement\n");
         return 1;
     }
     // printf("Stamt %d \n", node->n_type);
@@ -1104,16 +1438,25 @@ int handle_statement(Node* node, SymbolTable* symt, Instructions_info* instructi
         handle_assignment(node, symt, instructions_info);
         break;
     case t_COND:
+        handle_cond_stmt(node, symt, instructions_info);
+        break;
+    case t_INC_STMT:
+        handle_increament_statement(node,symt, instructions_info);
         break;
     case t_FOR:
+        handle_for_stmt(node,symt, instructions_info);
         break;
     case t_WHILE:
+        handle_while_stmt(node,symt, instructions_info);
         break;
     case t_DOWHILE:
+        handle_do_while_stmt(node,symt, instructions_info);
         break;
     case t_CONTINUE:
+        handle_continue(node,symt, instructions_info);
         break;
     case t_BREAK:
+        handle_break(node,symt, instructions_info);
         break;
     case t_RETURN:
         handle_function_return(node,symt, instructions_info);
@@ -1123,6 +1466,16 @@ int handle_statement(Node* node, SymbolTable* symt, Instructions_info* instructi
         break;
     default:
         break;
+    }
+}
+
+int handle_statements(Node* node, SymbolTable* symt, Instructions_info* instructions_info) {
+    if (node == NULL) {
+        return 1;
+    }
+    while (node != NULL) {
+        handle_statement(node, symt, instructions_info);
+        node = node ->next;
     }
 }
 
@@ -1356,7 +1709,7 @@ int handle_function_definitions(Node* node) {
 
     String* return_label = init_string("$", 1);
     add_str(return_label, symt->name, -1);
-    insert(labels, return_label, return_label);
+    insert(labels, (lli)return_label->val, (lli)return_label->val);
 
     
     int sp_size = 0;
@@ -1371,6 +1724,7 @@ int handle_function_definitions(Node* node) {
     // first pass
     instructions_info.gen_code = 0;
     instructions_info.extra_reg_count = 0;
+    instructions_info.label_count = 0;
     instructions_info.call_window_size = 0;
     instructions_info.return_label = return_label;
     instructions_info.curr_size = var_space;
@@ -1391,7 +1745,7 @@ int handle_function_definitions(Node* node) {
     // | sp/fp |  extra_fn_argument_space  | local_registers(var_space) | extra_space | extra_reg_space
     add_to_locals(symt,extra_fn_argument_space); // extra_reg(callee saved one are stored first)
     
-    printf("%d %d %d %d\n", extra_fn_argument_space, var_space, extra_space,extra_reg_space);
+  // printf("%d %d %d %d\n", extra_fn_argument_space, var_space, extra_space,extra_reg_space);
     // prologue
     sp_size = extra_fn_argument_space + var_space + extra_space + extra_reg_space; // full sp needed (utilized and saved also in same order)
     
@@ -1421,15 +1775,16 @@ int handle_function_definitions(Node* node) {
     // body
     // writes the instructions_info this time
     instructions_info.extra_reg_count = 0;
+    instructions_info.label_count = 0;
     instructions_info.call_window_size = 0;
     instructions_info.curr_size = extra_fn_argument_space + var_space;
     instructions_info.extra_regs[instructions_info.extra_reg_count ++] = ra_reg;
     instructions_info.extra_regs[instructions_info.extra_reg_count ++] = fp_reg;
     instructions_info.extra_regs[instructions_info.extra_reg_count ++] = s0_reg;
-    printf("This is all we got\n");
+  // printf("This is all we got\n");
     handle_func_body(func_body, symt, &instructions_info);
 
-    printf("%d %d %d %d\n", extra_fn_argument_space, var_space, extra_space,extra_reg_space);
+  // printf("%d %d %d %d\n", extra_fn_argument_space, var_space, extra_space,extra_reg_space);
 
     // epilogue
     String* instrs = (String*)top_stack(instructions_info.instructions_stack);
@@ -1442,6 +1797,7 @@ int handle_function_definitions(Node* node) {
     instrs = (String*)pop_stack(instructions_info.instructions_stack);
     instr_out_no_tab("%s", instrs->val);
 
+    freeString(return_label);
     freeString(instrs);
     free_stack(instructions_info.instructions_stack);
 

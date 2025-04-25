@@ -78,9 +78,9 @@
 
 %type <str> str_expr
 
-%type <node> expr var_expr id
+%type <node> expr var_expr id increament_expr increament_stmt
 func_body func_call for_assign_stmt for_expr_eval
-func_stmt statement stmt_list assign_stmt cond_stmt list decl 
+func_stmt statement stmt_list stmt_list1  assign_stmt cond_stmt list decl 
 decl_list data_type Gdecl_sec prog_block prog_block_stmt_list Fdef_sec expr_eval
 param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ldecl_sec
 
@@ -105,10 +105,7 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 			}
            ;
 
-	prog_block_stmt_list : /*Nothing*/ { 
-		$$ = create_global_node(NULL);
-	} 
-		|  stmt_list {
+	prog_block_stmt_list :  stmt_list {
 			$$ = create_global_node($1);
 		}
 		| BEG stmt_list END {
@@ -221,8 +218,8 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 		
 	Fdef	:	data_type func_name {
 			lli label;
-			if ((label = get(labels, $2)) == LONG_MIN || (char*)label == NULL) {
-				insert(labels, $2, $2);
+			if ((label = get(labels, (lli)$2)) == LONG_MIN || (char*)label == NULL) {
+				insert(labels, (lli)$2, (lli)$2);
 			}
 			current_symbol_table = add_sym_tables(current_symbol_table, $2, (void (*)(char *))free);
 		} '(' arg_list ')' '{' Ldecl_sec func_body '}'	{	
@@ -271,8 +268,12 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 	}
 		;
 
-	stmt_list:	statement		{ $$ = $1; }
-		|	statement stmt_list	{		add_neighbour($1, $2);$$ = $1;				}
+	stmt_list :  { $$ = NULL; }
+		| stmt_list1 { $$ = $1; }
+		;
+
+	stmt_list1:	statement		{ $$ = $1; }
+		|	statement stmt_list1	{		add_neighbour($1, $2);$$ = $1;				}
 		|	error ';' 		{ }
 		;
 
@@ -293,6 +294,7 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 			}
 			$$ = init_node(0, t_CONTINUE, NULL); 
 		}
+		| increament_stmt ';' { $$ = $1; }
 		| ret_stmt { $$ = $1; }
 		;
 
@@ -382,6 +384,7 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 
 	for_assign_stmt: { $$ = init_node(0, t_NOP, NULL); }
 		| assign_stmt { $$ = $1; }
+		| increament_stmt { $$ = $1; }
 		;
 	for_expr_eval: { $$ = init_node(0, t_NOP, NULL); }
 		| expr_eval { $$ = $1; }
@@ -413,13 +416,13 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 		| STR {
 			Node* node = init_node((lli)$1, (NODETYPE)(t_STR), (void (*)(lli))(freeString));
 			lli label;
-			if ((label = get(labels, $1 -> val)) == LONG_MIN || (char*)label == NULL) {
+			if ((label = get(labels, (lli)($1 -> val))) == LONG_MIN || (char*)label == NULL) {
 				char* val = (char*)(calloc(6,sizeof(char)));
 				val[0]= '$';
 				val[1]= 'L';
 				val[2]= 'C';
 				snprintf(val + 3, 3, "%d", labels->len);
-				insert(labels, $1 -> val, val);
+				insert(labels, (lli)($1 -> val), (lli)val);
 				write_instr_val(label_data, 0,"%s:", val);
 				write_instr_val(label_data, 1,"%-7s\t\"%s\\000\"", ".ascii", $1 -> val);
 			}
@@ -431,7 +434,7 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 		| STR ',' param_list1_with_str {
 			Node* node = init_node((lli)$1, (NODETYPE)(t_STR), (void (*)(lli))(freeString));
 			lli label;
-			if (((label = get(labels, $1 -> val )) == LONG_MIN) || ((char*)label == NULL )) {
+			if (((label = get(labels, (lli)($1 -> val) )) == LONG_MIN) || ((char*)label == NULL )) {
 				char* val = (char*)(calloc(6,sizeof(char)));
 				val[0]= '$';
 				val[1]= 'L';
@@ -448,6 +451,40 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 			$$ = node;
 		}
 		;
+	increament_stmt : increament_expr {
+		Node* node = init_node((lli)NULL, t_INC_STMT , NULL);
+		add_child(node, $1);
+		$$ = node;
+	};
+
+	increament_expr: var_expr PLUSPLUS	{			
+								check_validity_ste($1);
+								Node* node = init_node('+', t_PLUSPLUS_POST, NULL);
+								node -> depth = $1 -> depth + 1;
+								add_child(node,$1);
+								$$ = node;
+							}
+		|	var_expr MINUSMINUS	{			
+								check_validity_ste($1);
+								Node* node = init_node('+', t_MINUSMINUS_POST, NULL);
+								node -> depth = $1 -> depth + 1;
+								add_child(node,$1);
+								$$ = node;
+							}
+		|	PLUSPLUS var_expr	{			
+								check_validity_ste($2);
+								Node* node = init_node('+', t_PLUSPLUS_PRE, NULL);
+								node -> depth = $2 -> depth + 1;
+								add_child(node,$2);
+								$$ = node;
+							}
+		|	MINUSMINUS var_expr	{			
+								check_validity_ste($2);
+								Node* node = init_node('+', t_MINUSMINUS_PRE, NULL);
+								node -> depth = $2 -> depth + 1;
+								add_child(node,$2);
+								$$ = node;
+							};
 
 	expr_eval: expr {
 		Node * node = init_node(0, (NODETYPE)(t_EXPR), NULL);
@@ -481,34 +518,9 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 								check_validity_ste($1);
 								$$ = $1;
 							}
-		|	var_expr PLUSPLUS	{			
-								check_validity_ste($1);
-								Node* node = init_node('+', t_PLUSPLUS_POST, NULL);
-								node -> depth = $1 -> depth + 1;
-								add_child(node,$1);
-								$$ = node;
-							}
-		|	var_expr MINUSMINUS	{			
-								check_validity_ste($1);
-								Node* node = init_node('+', t_MINUSMINUS_POST, NULL);
-								node -> depth = $1 -> depth + 1;
-								add_child(node,$1);
-								$$ = node;
-							}
-		|	PLUSPLUS var_expr	{			
-								check_validity_ste($2);
-								Node* node = init_node('+', t_PLUSPLUS_PRE, NULL);
-								node -> depth = $2 -> depth + 1;
-								add_child(node,$2);
-								$$ = node;
-							}
-		|	MINUSMINUS var_expr	{			
-								check_validity_ste($2);
-								Node* node = init_node('+', t_MINUSMINUS_PRE, NULL);
-								node -> depth = $2 -> depth + 1;
-								add_child(node,$2);
-								$$ = node;
-							}
+		| increament_expr {
+			$$ = $1;
+		}
 		|	T			{	  
 							$$ = init_node(1 , (NODETYPE)(t_BOOLEAN), NULL);
 			}

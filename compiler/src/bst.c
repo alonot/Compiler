@@ -118,6 +118,9 @@ char* node_to_str(Node* node, int* len) {
         case t_IDENTIFIER: 
         *len = snprintf(val, *len, "IDENTIFIER(%s)", (char*)(node->val));
         break;    
+        case t_INC_STMT: 
+        *len = snprintf(val, *len, "INC_STMT");
+        break;    
         case t_EXPR: 
         *len = snprintf(val, *len, "EXPR(%d)", node->depth);
         break;    

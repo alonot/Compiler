@@ -13,7 +13,7 @@ run: build
 compile:
 	mips-linux-gnu-gcc-10 test.s 
 	qemu-mips -L /usr/mips-linux-gnu/ ./a.out 
-	@echo $?
+	echo $?
 
 crun: build
 	clear

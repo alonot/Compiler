@@ -220,6 +220,7 @@ typedef enum __ty {
     t_ARG_LIST,
     t_PARAM_LIST,
     t_BOOLEAN,
+    t_INC_STMT,
     t_PROG,
     t_OTHER,
     t_RETURN,

@@ -209,6 +209,7 @@ int main(int argc , char* argv[]){
 	}
 	printSymbolTables(prog_root);
 
+	free_hashmap(labels);
 	free_tree(prog_root);
 	freeString(label_data);
 	fclose(debug);

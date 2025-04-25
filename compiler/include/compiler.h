@@ -36,6 +36,9 @@ typedef struct __instr {
     int gen_code;
     int call_window_size; // store the max size of window required for a function call
     String* return_label; 
+    String* loop_label; 
+    String* loop_end_label; 
+    int label_count;
 } Instructions_info;
 
 typedef struct STEntry STEntry;
@@ -114,7 +117,7 @@ void and(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, RegPromi
 
 void or(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, RegPromise* rs2) ;
 
-void xor(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, RegPromise* rs2) ;
+void xor(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, RegPromise* rs2);
 
 void subu(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, RegPromise* rs2) ;
 
@@ -140,11 +143,13 @@ void storew(Instructions_info* instr_info,RegPromise* rs1, RegPromise* rs2) ;
 
 void sll(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, lli immediate) ;
 
-void reload_reg(RegPromise* reg_promise, Instructions_info* instr_info);
+void beq(Instructions_info* instr_info,RegPromise* rs1, RegPromise* rs2, char* label);
 
+void bne(Instructions_info* instr_info,RegPromise* rs1, RegPromise* rs2, char* label);
 
 /************ */
 
+void reload_reg(RegPromise* reg_promise, Instructions_info* instr_info);
 
 void assign_reg_promise(RegPromise* p1, RegPromise* p2);
 
@@ -155,3 +160,11 @@ void write_instr(Instructions_info* instr_info, const char* format, ...);
 void save_n_free(Register* reg, Instructions_info* instructions_info);
 
 void write_instr_val(String* instr_val, int tab, const char* format, ...);
+
+int handle_function_call(Node* node, SymbolTable* symt, Instructions_info* instr_info);
+
+void load_label(Instructions_info* instr_info, RegPromise* rd, char* label);
+
+int handle_statement(Node* node, SymbolTable* symt, Instructions_info* instructions_info);
+
+int handle_statements(Node* node, SymbolTable* symt, Instructions_info* instructions_info);

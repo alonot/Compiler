@@ -36,3 +36,10 @@ Part 3
 Part 4
 * printed symbol table
 * change in array address calculation
+
+
+Part5 
+* Came up with a modular way for register allocation and handle spill/fills automatically.
+* Every function work with RegPromise. Each of these RegPromise may/may not hold an actual register. In case its reg field is empty and given some other checks, we can be sure that the register this promise pointed to was spilled, so we allocate a new register and fill it with the info in this promise.
+* malloc() tcache error came many time, mainly due to multiple free
+* Covered all the statements : for, while, do-while, conditionals, break, continue
