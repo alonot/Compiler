@@ -61,7 +61,7 @@ int free_hashmap(HashMap* hm);
 
 
 
-typedef struct _SymbolTables {
+typedef struct _SymbolTable {
     // HashMap* global;
     HashMap** local_tables;
     int no_local_tables;
@@ -143,7 +143,7 @@ typedef enum __ty {
     t_EE,
     t_LTE,
     t_NE,
-    t_FUNC,
+    t_FUNC_CALL,
     t_BOOLEAN,
     t_OTHER,
     t_KEYWORD,

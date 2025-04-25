@@ -3,28 +3,32 @@
 /**
  * Inits the struct with one global symbol table
  */
-SymbolTables *init_sym_tables()
+SymbolTable *init_sym_tables(char* name,void (*fnfree)(char*))
 {
-    SymbolTables *symt = (SymbolTables *)(malloc(sizeof(SymbolTables)));
-    // symt->global = init_hash_map(hash_string);
-    symt->local_tables = (HashMap **)(malloc(sizeof(HashMap *)));
-    symt->local_tables[0] = init_hash_map(hash_string, compare_string);
-    symt->no_local_tables = 1; // global symbol table
+    SymbolTable *symt = (SymbolTable *)(malloc(sizeof(SymbolTable)));
+    symt->local_table = init_hash_map(hash_string, compare_string);
+    symt->parent = NULL; // global symbol table
+    symt->free = fnfree;
+    symt->name = name;
     return symt;
 }
 
-int add_local_symbol_table(SymbolTables *symtables)
+SymbolTable *add_sym_tables(SymbolTable* symboltable,char* name,void (*fnfree)(char*))
 {
-    symtables->no_local_tables++;
-    symtables->local_tables = (HashMap **)(realloc(symtables->local_tables, sizeof(HashMap *) * symtables->no_local_tables));
-    symtables->local_tables[symtables->no_local_tables - 1] = init_hash_map(hash_string, compare_string);
-    return 0;
+    SymbolTable *symt = init_sym_tables(name, fnfree);
+    symt->parent = symboltable;
+    return symt;
 }
 
-int remove_local_symbol_table(SymbolTables *symtables)
+SymbolTable *parent_sym_table(SymbolTable* symboltable) {
+    return symboltable->parent;
+}
+
+
+
+int free_symbol_table(SymbolTable *symtable)
 {
-    symtables->no_local_tables--;
-    HashMap *table = symtables->local_tables[symtables->no_local_tables];
+    HashMap *table = symtable->local_table;
     lli *table_keys = keys(table);
     for (int i = 0; i < table->len; i++)
     {
@@ -32,16 +36,12 @@ int remove_local_symbol_table(SymbolTables *symtables)
         free((char *)table_keys[i]);
         free_ste(value);
     }
+    if (symtable->free != NULL) {
+        symtable->free(symtable->name);
+    }
     free(table_keys);
     free_hashmap(table);
-    if (symtables->no_local_tables == 0)
-    {
-        free(symtables->local_tables);
-    }
-    else
-    {
-        symtables->local_tables = (HashMap **)(realloc(symtables->local_tables, sizeof(HashMap *) * symtables->no_local_tables));
-    }
+    free(symtable);
     return 0;
 }
 
@@ -49,13 +49,18 @@ int remove_local_symbol_table(SymbolTables *symtables)
  * returns value of the variable, searching from local-most symbol table all way to the global symbol table
  * return INT_MIN if not present in ANY;
  */
-lli value_Of(SymbolTables *symtables, lli variable)
+lli value_Of(SymbolTable *symtable, lli variable)
 {
-    lli value = (lli)INT_MIN;
-    int pos = symtables->no_local_tables - 1;
-    while (pos >= 0 && (value = get(symtables->local_tables[pos--], variable)) == (lli)INT_MIN)
-        ;
+    lli value = (lli)LONG_MIN;
+    while (symtable != NULL && (value = get(symtable->local_table, variable)) == (lli)LONG_MIN) {
+        symtable = symtable->parent;
+    }
     return value;
+}
+
+lli find_local(SymbolTable *symtable, lli variable)
+{
+    return get(symtable->local_table, variable);
 }
 
 void printSTEInSymbolTable(STEntry *ste)
@@ -91,14 +96,14 @@ void printSTEInSymbolTable(STEntry *ste)
                 max_mult_one_less *= arrval->arr_lengths[i];
             }
         }
-        printf("%20s\t | \n",arr_indx);
+        fprintf(debug,"%20s\t | \n",arr_indx);
         // array positions
         int last_depth_pos = arrval->arr_depth;
         int pos = 0;
         lli *addr = (lli*)arrval->arr;
         while (pos < arrval->arr_max_pos)
         {
-            printf("|%10s | ", "");
+            fprintf(debug,"|%10s | ", "");
             char arr_indx[100];
             int start = 0;
             start = snprintf(arr_indx,100,"%s", dtype);
@@ -111,42 +116,42 @@ void printSTEInSymbolTable(STEntry *ste)
                 max_pos_less /= arrval->arr_lengths[i];
             }
             start += snprintf(arr_indx + start, max_len_indx,"[..]");
-            printf("%20s\t | ",arr_indx);
+            fprintf(debug,"%20s\t | ",arr_indx);
             for (int i = 0; i < arrval->arr_lengths[last_depth_pos]; i++)
             {
                 switch (ste->dtype)
                 {
                 case DOUBLE:
-                    printf("%lf", *((double*)addr + pos));
+                    fprintf(debug,"%lf", *((double*)addr + pos));
                     break;
                 case INT:
-                    printf("%lld", *(addr + pos));
+                    fprintf(debug,"%lld", *(addr + pos));
                     break;
                 case BOOL:
-                    printf("%s", *((short*)addr + pos) != 0 ? "True" : "False");
+                    fprintf(debug,"%s", *((short*)addr + pos) != 0 ? "True" : "False");
                     break;
                 default:
                     break;
                 }
                 pos ++;
-                printf(", ");
+                fprintf(debug,", ");
             }
-            printf("\n");
+            fprintf(debug,"\n");
         }
     }
     else
     {
-        printf("%20s\t | ",dtype);
+        fprintf(debug,"%20s\t | ",dtype);
         switch (ste->dtype)
         {
         case DOUBLE:
-            printf("%lf\n", ste->value.dval);
+            fprintf(debug,"%lf\n", ste->value.dval);
             break;
         case INT:
-            printf("%lld\n", ste->value.lval);
+            fprintf(debug,"%lld\n", ste->value.lval);
             break;
         case BOOL:
-            printf("%s\n", ste->value.lval != 0 ? "True" : "False");
+            fprintf(debug,"%s\n", ste->value.lval != 0 ? "True" : "False");
             break;
         default:
             break;
@@ -154,74 +159,74 @@ void printSTEInSymbolTable(STEntry *ste)
     }
 }
 
-void printSymbolTable(HashMap *table)
+void printSymbolTable(SymbolTable *symt)
 {
+    HashMap* table = symt->local_table;
     lli *table_keys = keys(table);
     for (int i = 0; i < table->len; i++)
     {
         STEntry *value = (STEntry *)get(table, table_keys[i]);
-        printf("|%10s | ", (char *)table_keys[i]);
+        fprintf(debug,"|%10s | ", (char *)table_keys[i]);
         printSTEInSymbolTable(value);
     }
     free(table_keys);
 }
 
-void printSymbolTables(SymbolTables *symt)
+void printSymbolTables(Node * root)
 {
-    int tables = symt->no_local_tables;
-    int i =0;
-    printf("__________________________________________________________\n");
-    while (i < tables)
-    {
-        printf("Symbol table No. %d\n", i + 1);
-        printf("___________________________________________________________  .  .  .\n");
-        printf("|%10s | %20s\t | Value(s)\n", "Variable", " Data Type");
-        printf("|___________|____________________________|_________________  .  .  .\n");
-        printSymbolTable(symt->local_tables[i ++]);
-        printf("-----------------------------------------------------------  .  .  .\n");
+    if (root->n_type != t_PROG) {
+        fprintf(debug, "root given is not of type t_PROG\n");
+        return;
+    }
+    Node* child = root -> first_child;
+    while (child !=  NULL) {
+        printSymbolTable((SymbolTable*)(child->val));
+        child = child -> next;
     }
 }
 
 
-lli upsert_to(SymbolTables *symt, lli key, lli value)
+lli upsert_to(SymbolTable *symt, lli key, lli value)
 {
-    // printf("..%d\n", len_at(symt));
-    return upsert(symt->local_tables[symt->no_local_tables - 1], key, value);
+    // fprintf(debug,"..%d\n", len_at(symt));
+    return upsert(symt->local_table, key, value);
 }
 
 /**
  * Update a variable and its value to the local-most symbol table if present else to the gloabl symbol table
  */
-lli update_to(SymbolTables *symt, lli key, lli value)
+lli update_to(SymbolTable *symt, lli key, lli value)
 {
-    return update(symt->local_tables[symt->no_local_tables - 1], key, value);
+    return update(symt->local_table, key, value);
 }
 
-lli *keys_at(SymbolTables *symt)
+lli *keys_at(SymbolTable *symt)
 {
-    return keys(symt->local_tables[symt->no_local_tables - 1]);
+    return keys(symt->local_table);
 }
 
-int len_at(SymbolTables *symt)
+int len_at(SymbolTable *symt)
 {
-    // printf("..%d\n", symt->no_local_tables);
-    return (symt->local_tables[symt->no_local_tables - 1])->len;
+    // fprintf(debug,"..%d\n", symt->no_local_tables);
+    return (symt->local_table)->len;
 }
 
-int freeAll(SymbolTables *symt)
+int freeAll(SymbolTable *symt)
 {
-    while (symt->no_local_tables != 0)
+    while (symt != NULL)
     {
-        remove_local_symbol_table(symt);
+        free_symbol_table(symt);
+        symt = symt -> parent;
     }
 }
 
 /*************STEntry********* */
 
-STEntry *create_stentry(STETYPE dtype, char *name)
+STEntry *create_stentry(STETYPE dtype, char *name, VARTYPE var_type)
 {
     STEntry *ste = (STEntry *)calloc(1, sizeof(STEntry));
     ste->dtype = dtype;
+    ste->var_type = var_type;
     ste->name = name;
 }
 

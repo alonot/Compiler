@@ -5,6 +5,7 @@ Node* init_node(lli val, NODETYPE n_type,  void (*free_fn)(lli)) {
     n->val = val;
     n->n_type = n_type;
     n->free = free_fn;
+    n->depth = 0;
     return n;
 }
 
@@ -78,9 +79,15 @@ int add_all_children(Node* node, Node* child, Node* lastchild) {
     if (node->first_child == NULL) {
         node->first_child = child;
         node->last_child = lastchild;
+        if (lastchild == NULL) {
+            update_last_child(node);
+        }
     } else if (node->last_child != NULL) {
         node->last_child->next = child;
         node->last_child = lastchild;
+        if (lastchild == NULL) {
+            update_last_child(node);
+        }
     } else {
         return -1;
     }
@@ -112,10 +119,16 @@ char* node_to_str(Node* node, int* len) {
         *len = snprintf(val, *len, "IDENTIFIER(%s)", (char*)(node->val));
         break;    
         case t_EXPR: 
-        *len = snprintf(val, *len, "EXPR");
+        *len = snprintf(val, *len, "EXPR(%d)", node->depth);
         break;    
-        case t_FUNC: 
-        *len = snprintf(val, *len, "FUNC(%s)", (char*)(node->val));
+        case t_FUNC_CALL: 
+        *len = snprintf(val, *len, "CALL(%s)", (char*)(node->val));
+        break;    
+        case t_FUNC_DEF: 
+        *len = snprintf(val, *len, "FUNC_DEF(%s)", (char*)(((SymbolTable*)(node->val))->name));
+        break;    
+        case t_ARG_LIST: 
+        *len = snprintf(val, *len, "ARG_LIST");
         break;    
         case t_COND: 
         *len = snprintf(val, *len, "COND");
@@ -146,6 +159,21 @@ char* node_to_str(Node* node, int* len) {
         break;    
         case t_CONTINUE: 
         *len = snprintf(val, *len, "CONTINUE");
+        break;
+        case t_FUNC_BODY: 
+        *len = snprintf(val, *len, "FUNC_BODY");
+        break;
+        case t_FUNC_RET: 
+        *len = snprintf(val, *len, "FUNC_RET");
+        break;
+        case t_PARAM_LIST: 
+        *len = snprintf(val, *len, "PARAM_LIST");
+        break;
+        case t_DECL: 
+        *len = snprintf(val, *len, "DECL");
+        break;    
+        case t_PROG: 
+        *len = snprintf(val, *len, "PROG");
         break;    
         case t_KEYWORD: 
         *len = snprintf(val, *len, "KEYWORD(%s)", (char*)(node->val));
@@ -162,60 +190,72 @@ char* node_to_str(Node* node, int* len) {
         case t_OP: 
             switch((char)(node->val)) {
                 case '+':
-                *len = snprintf(val, *len, "ADD");
+                *len = snprintf(val, *len, "ADD(%d)", node->depth);
                 break;
                 case '-':
-                *len = snprintf(val, *len, "SUB");
+                *len = snprintf(val, *len, "SUB(%d)", node->depth);
                 break;
                 case '*':
-                *len = snprintf(val, *len, "MUL");
+                *len = snprintf(val, *len, "MUL(%d)", node->depth);
                 break;
                 case '/':
-                *len = snprintf(val, *len, "DIV");
+                *len = snprintf(val, *len, "DIV(%d)", node->depth);
                 break;
                 case '%':
-                *len = snprintf(val, *len, "MOD");
+                *len = snprintf(val, *len, "MOD(%d)", node->depth);
                 break;
                 case '&':
-                *len = snprintf(val, *len, "AND");
+                *len = snprintf(val, *len, "AND(%d)", node->depth);
                 break;
                 case '|':
-                *len = snprintf(val, *len, "OR");
+                *len = snprintf(val, *len, "OR(%d)", node->depth);
                 break;
                 case '<':
-                *len = snprintf(val, *len, "LT");
+                *len = snprintf(val, *len, "LT(%d)", node->depth);
                 break;
                 case '>':
-                *len = snprintf(val, *len, "GT");
+                *len = snprintf(val, *len, "GT(%d)", node->depth);
                 break;
                 case '!':
-                *len = snprintf(val, *len, "NOT");
+                *len = snprintf(val, *len, "NOT(%d)", node->depth);
                 break;
                 default:
                 *len = snprintf(val, *len, "NONE");
             }
         break;  
         case t_EE:
-        *len = snprintf(val, *len, "EQ");
+        *len = snprintf(val, *len, "EQ(%d)", node->depth);
         break;  
         case t_NE:
-        *len = snprintf(val, *len, "NE");
+        *len = snprintf(val, *len, "NE(%d)", node->depth);
         break;  
         case t_GTE:
-        *len = snprintf(val, *len, "GTEQ");
+        *len = snprintf(val, *len, "GTEQ(%d)", node->depth);
         break;  
         case t_LTE:
-        *len = snprintf(val, *len, "LTEQ");
+        *len = snprintf(val, *len, "LTEQ(%d)", node->depth);
         break;  
         case t_MINUS:
-        *len = snprintf(val, *len, "MINUS");
+        *len = snprintf(val, *len, "MINUS(%d)", node->depth);
+        break;  
+        case t_PLUSPLUS_POST:
+        *len = snprintf(val, *len, "PLUSPLUS_POST(%d)", node->depth);
+        break;  
+        case t_MINUSMINUS_POST:
+        *len = snprintf(val, *len, "MINUSMINUS_POST(%d)", node->depth);
+        break;  
+        case t_PLUSPLUS_PRE:
+        *len = snprintf(val, *len, "PLUSPLUS_PRE(%d)", node->depth);
+        break;  
+        case t_MINUSMINUS_PRE:
+        *len = snprintf(val, *len, "MINUSMINUS_PRE(%d)", node->depth);
         break;  
         default:
         *len = snprintf(val, *len, "NONE");
     } 
     (*len) ++;
     if (*len <= 0) {
-        printf("Failed%d %d\n",*len, node->n_type);
+        fprintf(debug,"Failed%d %d\n",*len, node->n_type);
         return NULL; // failed
     }
     val = (char*) (realloc(val, *len));
@@ -243,7 +283,7 @@ int create_print_tree(Node* node, int depth,int parent_offset,String* string_at_
     if (node == NULL) {
         return parent_offset;
     }
-    // printf("%d \n", depth);
+    // fprintf(debug,"%d \n", depth);
     int total_children = 0;
     Node* child = node->first_child;
     while (child != NULL) {
@@ -259,13 +299,13 @@ int create_print_tree(Node* node, int depth,int parent_offset,String* string_at_
     }
     len -= length(string_at_depth[depth]);
     repeat_n_add(string_at_depth[depth], ' ', len < 0 ? 0 : len);
-    // printf("after: %s.%d\n", string_at_depth[depth]->val, len);
+    // fprintf(debug,"after: %s.%d\n", string_at_depth[depth]->val, len);
     int cur_len = 0;
     char* val = node_to_str(node, &cur_len);
     add_str(string_at_depth[depth] ,val, cur_len - 1);
     free(val);
     len = length(string_at_depth[depth]);
-    // printf("%sgetting%d %d %d\n", string_at_depth[depth]->val, len, parent_offset, cur_len);
+    // fprintf(debug,"%sgetting%d %d %d\n", string_at_depth[depth]->val, len, parent_offset, cur_len);
     for (int i =mid; i < total_children; i ++) {
         len = create_print_tree(child, depth + 1, len, string_at_depth);
         child = child->next;
@@ -277,16 +317,16 @@ int create_print_tree(Node* node, int depth,int parent_offset,String* string_at_
 void printTree(Node* node) {
     int max_depth = depth(node);
     String* string_at_depth[max_depth];
-    // printf("depth%d\n", max_depth);
+    // fprintf(debug,"depth%d\n", max_depth);
     for (int i =0; i < max_depth; i ++) {
         string_at_depth[i] = init_string("", 0);
     }
     //
     create_print_tree(node, 0, 0,string_at_depth);
     //
-    // printf("Hereh\n");
+    // fprintf(debug,"Hereh\n");
     for (int i =0; i < max_depth; i ++) {
-        printf("%s\n", string_at_depth[i]->val);
+        fprintf(debug,"%s\n", string_at_depth[i]->val);
         freeString(string_at_depth[i]);
     }
 }
@@ -294,14 +334,14 @@ void printTree(Node* node) {
 void printNodeWithIndent(Node* node, int depth)  {
     if (node == NULL)  return;
     for (int i =0; i < depth; i ++) {
-        printf("\t");
+        fprintf(debug,"\t");
     }
     int curr_len = 0;
     if (depth > 0) {
-        printf("|-");
+        fprintf(debug,"|-");
     } 
     char* val = node_to_str(node, &curr_len);
-    printf("%s\n", val);
+    fprintf(debug,"%s\n", val);
     free(val);
     printNodeWithIndent(node ->first_child, depth + 1);
     printNodeWithIndent(node ->next, depth);

@@ -20,7 +20,7 @@ void add_str(String* str, char* val, int len) {
             len --;
         }
     }
-    // printf("%sAdd %d: %s\n", str->val, str->length,val);
+    // fprintf(stdout,"%sAdd %d: %s\n", str->val, str->length,val);
     if (str->length + len >= str->size) {
         str->size = (str->length + len) * 2;
         str->val = (char*) (realloc(str->val, sizeof(char) * str->size));
@@ -28,7 +28,7 @@ void add_str(String* str, char* val, int len) {
     strncpy(str->val + str->length - 1, val, len); // assumed that str.val[str.length - 1] == '\0'
     str->length += len - 1; 
     str->val[str->length ++] = '\0';
-    // printf("%s %d %d \n", str->val, str->length, len);
+    // fprintf(stdout,"%s %d %d \n", str->val, str->length, len);
 }
 
 inline int length(String* str) {
@@ -40,7 +40,7 @@ void repeat_n_add(String* str, char val, int times) {
         str->size = (str->length + times) * 2;
         str->val = (char*) (realloc(str->val, sizeof(char) * str->size));
     }
-    // printf("%s %d %d %c\n", str->val, str->length, times, val);
+    // fprintf(debug,"%s %d %d %c\n", str->val, str->length, times, val);
     memset(str->val + str->length - 1, val, times);
     str->length += times - 1;
     str->val[str->length ++] = '\0';

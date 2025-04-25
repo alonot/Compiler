@@ -25,7 +25,7 @@ short compare_string(lli s1_val, lli s2_val) {
     if (s1_val == LLONG_MIN || s2_val == LLONG_MIN || s1 == NULL || s2 == NULL) {
         return -1;
     }
-    // printf("%s %s\n", s1, s2);
+    // fprintf(debug,"%s %s\n", s1, s2);
     return (short)strcmp(s1, s2);
 }
 
@@ -75,12 +75,12 @@ lli insert(HashMap* hm, lli key, lli value) {
         int prev_size = hm->size;
         hm->size = next_prime(hm->size * 2);
         reallocate_hash(hm, prev_size);
-        // printf("Here %lld\n", LLONG_MIN);
+        // fprintf(debug,"Here %lld\n", LLONG_MIN);
 
     }
 
     // for (int i  =0; i < hm->size; i ++) {
-    //     printf("%ld %d\n", hm->keys[i] ,hm->keys[i] == LLONG_MIN);
+    //     fprintf(debug,"%ld %d\n", hm->keys[i] ,hm->keys[i] == LLONG_MIN);
     // }
 
     lli hash_val = hm->hash(key);
@@ -88,12 +88,12 @@ lli insert(HashMap* hm, lli key, lli value) {
     // lli size= (lli)pow(2,ceil(log2(hm->size)));
     lli size= hm->size;
     int i =1;
-    // printf("%d\n", size);
+    // fprintf(debug,"%d\n", size);
     while ((hm->keys[pos] != (lli)LLONG_MIN) ) {
         pos = (hash_val + (i + (i * i)) ) % size;
         i ++ ;
     }
-    // printf("Strdup %d\n", pos);
+    // fprintf(debug,"Strdup %d\n", pos);
     hm->keys[pos] = (key); // occupied
     hm->values[pos] = (value);
     hm->len ++;
@@ -136,10 +136,10 @@ lli get_actual_pos (HashMap* hm, lli key) {
     lli size= hm->size;
     lli i =1;
     short res = 0;
-    // printf("pos %ld %p %ld\n", pos, hm->keys[pos], size);
+    // fprintf(debug,"pos %ld %p %ld\n", pos, hm->keys[pos], size);
     while (((res = hm->compare(hm->keys[pos], key) ) != 0 ) && (i <= hm->size)) {
         pos = (hash_val + (i + (i * i)) ) % size;
-        // printf("pos %ld\n", pos);
+        // fprintf(debug,"pos %ld\n", pos);
         i ++ ;
     }
     if (i > hm->size) {
@@ -153,10 +153,10 @@ lli get_actual_pos (HashMap* hm, lli key) {
  * else updates the previous entry
  */
 lli upsert(HashMap* hm, lli key, lli value) {
-    // printf("__\n");
+    // fprintf(debug,"__\n");
     lli pos = get_actual_pos(hm, key);
     if (pos == LLONG_MIN) {
-        // printf("PP %s: %p, %d\n",key, key, hm->len);
+        // fprintf(debug,"PP %s: %p, %d\n",key, key, hm->len);
         return insert(hm,key,value);
     } else {
         hm->values[pos] = value;
@@ -169,7 +169,7 @@ lli upsert(HashMap* hm, lli key, lli value) {
  * else updates the previous entry
  */
 lli update(HashMap* hm, lli key, lli value) {
-    // printf("__\n");
+    // fprintf(debug,"__\n");
     lli pos = get_actual_pos(hm, key);
     if (pos == LLONG_MIN) {
         return LLONG_MIN;
@@ -181,7 +181,7 @@ lli update(HashMap* hm, lli key, lli value) {
 
 
 lli get(HashMap* hm, lli key) {
-    // printf("PP %s: %d, %d\n",key, hm->len);
+    // fprintf(debug,"PP %s: %d, %d\n",key, hm->len);
     lli pos = get_actual_pos(hm, key);
     if (pos == LLONG_MIN) {
         return (lli)pos;
@@ -212,7 +212,7 @@ lli* keys(HashMap* hm) {
     lli size= hm->size;
     int pos = 0;
     for (int i =0; i < size; i ++) {
-        // printf("%p %d\n", hm->keys[i], pos);
+        // fprintf(debug,"%p %d\n", hm->keys[i], pos);
         lli k = hm->keys[i];
         if (k != (lli)(LLONG_MIN) && (char*)k != NULL) {
             keys[pos ++] = hm->keys[i];

@@ -4,6 +4,8 @@
 #include "stdlib.h"
 #include "math.h"
 #include <stdio.h>
+#include <stdarg.h>
+
 
 #define ulli unsigned long long int
 #define lli long long int
@@ -61,47 +63,55 @@ int free_hashmap(HashMap* hm);
 
 
 
-typedef struct _SymbolTables {
-    // HashMap* global;
-    HashMap** local_tables;
-    int no_local_tables;
-} SymbolTables;
+typedef struct _SymbolTable {
+    HashMap* local_table;
+    char* name;
+    void (*free)(char*);
+    struct _SymbolTable* parent ;
+} SymbolTable;
 
 /**
- * Inits the struct with one global symbol table
+ * Adds a symbol table with given name with symboltable(argument) as parent
  */
-SymbolTables* init_sym_tables();
+SymbolTable *add_sym_tables(SymbolTable* symboltable,char* name,void (*fnfree)(char*));
 
-int add_local_symbol_table(SymbolTables* symtables);
+/**
+ * returns parent symbol table
+ */
+SymbolTable *parent_sym_table(SymbolTable* symboltable);
 
-int remove_local_symbol_table(SymbolTables* symtables);
+/**
+ * finds wether a variable is present in the current local table.
+ */
+lli find_local(SymbolTable* symboltable, lli variable);
+
+/**
+ * free given symbol table
+ */
+int free_symbol_table(SymbolTable *symtable);
 
 /**
  * returns value of the variable, searching from local-most symbol table all way to the global symbol table
  * return INT_MIN if not present in ANY;
  */
-lli value_Of(SymbolTables* symtables, lli variable);
+lli value_Of(SymbolTable* symtables, lli variable);
 
 /**
  * Adds a variable and its value to the local-most symbol table if present else to the gloabl symbol table
  */
-lli upsert_to(SymbolTables* symt, lli key,lli value);
+lli upsert_to(SymbolTable* symt, lli key,lli value);
 
 /**
  * Update a variable(if present) and its value to the local-most symbol table if present else to the gloabl symbol table
  */
-lli update_to(SymbolTables* symt, lli key,lli value);
+lli update_to(SymbolTable* symt, lli key,lli value);
 
 /**
  * Returns all the keys at top most level symbol table
  */
-lli* keys_at(SymbolTables* symt);
+lli* keys_at(SymbolTable* symt);
 
-int len_at(SymbolTables* symt);
-
-int freeAll(SymbolTables* symt);
-
-void printSymbolTables(SymbolTables *symt);
+int len_at(SymbolTable* symt);
 
 /**************STACK *************** */
 
@@ -116,6 +126,8 @@ typedef struct __stack {
  */
 Stack* init_stack();
 
+void free_stack(Stack* st);
+
 /** 
  * Pushes a value to the stack
  */
@@ -126,6 +138,59 @@ void push_stack(Stack* st, lli val);
  * LONG_MIN if empty
  */
 lli pop_stack(Stack* st);
+
+/**
+ * return the top of the stack
+ * LONG_MIN if empty
+ */
+lli top_stack(Stack* st);
+
+/************************************ */
+
+/**************Queue *************** */
+
+
+// QNode structure
+typedef struct QNode {
+    lli data;
+    struct QNode* next;
+} QNode;
+
+// Queue structure
+typedef struct {
+    QNode* front;
+    QNode* rear;
+    int len;
+} Queue;
+
+/**
+ * init queue with top = 0 and size = 1
+ */
+Queue* init_queue();
+
+void free_queue(Queue*);
+
+/** 
+ * enqueue a value to the queue
+ */
+void enqueue_queue(Queue* st, lli val);
+
+/**
+ * pops the front of the queue
+ * LONG_MIN if empty
+ */
+lli dequeue_queue(Queue* st);
+
+/**
+ * return the front of the queue
+ * LONG_MIN if empty
+ */
+lli front_queue(Queue* st);
+
+/**
+ * find and remove oldest instance of given value 
+ */
+lli remove_item(Queue* qt, lli val);
 
 /************************************ */
 
@@ -143,8 +208,19 @@ typedef enum __ty {
     t_EE,
     t_LTE,
     t_NE,
-    t_FUNC,
+    t_PLUSPLUS_POST,
+    t_MINUSMINUS_POST,
+    t_PLUSPLUS_PRE,
+    t_MINUSMINUS_PRE,
+    t_FUNC_CALL, // for function calls
+    t_FUNC_BODY, // for function body
+    t_FUNC_RET, // for function return
+    t_DECL, // for declaration blocks
+    t_FUNC_DEF, // function definition
+    t_ARG_LIST,
+    t_PARAM_LIST,
     t_BOOLEAN,
+    t_PROG,
     t_OTHER,
     t_KEYWORD,
     t_EXPR,
@@ -168,6 +244,7 @@ typedef struct __tree {
     struct __tree* next;
     struct __tree* last_child;
     lli val;
+    int depth;
     NODETYPE n_type;
     void (*free)(lli);
 } Node;
@@ -193,6 +270,8 @@ void free_tree(Node*);
 int add_neighbour(Node* node, Node* child);
 
 int update_last_child(Node* node);
+
+void printSymbolTables(Node* root);
 
 /*************String***************** */
 typedef struct _string {
@@ -221,11 +300,18 @@ int length(String* str);
 
 /************************************ */
 
+#include "compiler.h"
+
 typedef enum _ste_dtype {
     BOOL,
     INT,
     DOUBLE
 } STETYPE;
+
+typedef enum _ste_var_type {
+    ARG,
+    LOCAL
+} VARTYPE;
 
 typedef struct _array_info {
     char* arr; // null for non-array
@@ -245,14 +331,17 @@ typedef union _ste_val {
 typedef struct STEntry {
     STEVAL value;
     STETYPE dtype;
+    VARTYPE var_type; // type of variable (argument , local, etc)
     char* name; // variable entry name
     short is_array; // to tell whether this entry is array or not
+    int loc_from_ref_reg; 
+    RegPromise* ref_reg; // this is always among : {fp, sp, gp}
 } STEntry ;
 
 /**
  * creates an entry with empty val and given dtype
  */
-STEntry* create_stentry(STETYPE dtype, char* name);
+STEntry* create_stentry(STETYPE dtype, char* name, VARTYPE var_type);
 
 /**
  * sprintf the ste info in given val
@@ -330,7 +419,6 @@ void free_ste(STEntry* ste) ;
  */
 int run(Node* node);
 
-#define max(a,b) (a) > (b) ? (a) : (b);
 
 /**
  * assigns the value in addr to the val according to dtype

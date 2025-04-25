@@ -51,7 +51,7 @@ void evaluate_function(Node *node, double *val)
 {
     if (node == NULL)
         return;
-    if (node->n_type != t_FUNC)
+    if (node->n_type != t_FUNC_CALL)
         return;
 
     char *fn_name = (char *)node->val;
@@ -464,7 +464,7 @@ int run(Node *node)
         // printf("Evaluating ASsing\n");
         evaluate_assign(node);
         break;
-    case t_FUNC:
+    case t_FUNC_CALL:
         // printf("Evaluating Func\n");
         evaluate_function(node, &val);
         break;

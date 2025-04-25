@@ -23,11 +23,25 @@ lli pop_stack(Stack* st) {
     if (st->top == 0) {
         return LLONG_MIN;
     }
-    // printf("pop %d\n", st->top);
+    // fprintf(debug,"pop %d\n", st->top);
     lli val = st->values[--st->top ];
     if (st->top != 1 && st->top < st->size / 2 ) {
         st->size /= 2;
         st->values = (lli*) (realloc(st->values, sizeof(lli) * st->size));
     }
     return val;
+}
+
+lli top_stack(Stack* st) {
+    if (st->top == 0) {
+        return LLONG_MIN;
+    }
+    // fprintf(debug,"pop %d\n", st->top);
+    lli val = st->values[st->top - 1];
+    return val;
+}
+
+void free_stack(Stack* st) {
+    free(st->values);
+    free(st);
 }

@@ -8,3 +8,6 @@
 .vscode/**
 **/**.output
 **/bin/compiler
+
+a.out
+**test**

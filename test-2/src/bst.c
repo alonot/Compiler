@@ -114,7 +114,7 @@ char* node_to_str(Node* node, int* len) {
         case t_EXPR: 
         *len = snprintf(val, *len, "EXPR");
         break;    
-        case t_FUNC: 
+        case t_FUNC_CALL: 
         *len = snprintf(val, *len, "FUNC(%s)", (char*)(node->val));
         break;    
         case t_COND: 

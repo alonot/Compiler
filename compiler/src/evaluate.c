@@ -19,7 +19,7 @@ void assign_val(lli *addr, int dtype, double *val)
     default: break;
         break;
     }
-    // printf("got %f %p %lld %f %d\n", *addr, val, *val, *(double*)val, dtype);
+    // fprintf(yyout,"got %f %p %lld %f %d\n", *addr, val, *val, *(double*)val, dtype);
 }
 
 /**
@@ -27,20 +27,20 @@ void assign_val(lli *addr, int dtype, double *val)
  */
 void assign_addr(lli *addr, int dtype, double val)
 {
-    // printf("got %lld %f %f\n", *addr, *(double*)addr,  val);
+    // fprintf(yyout,"got %lld %f %f\n", *addr, *(double*)addr,  val);
     switch (dtype)
     {
     case DOUBLE:
         *(double *)addr = val;
-        // printf("%f\n", *(double*)addr);
+        // fprintf(yyout,"%f\n", *(double*)addr);
         break;
     case INT:
         *addr = (lli)val;
-        // printf("%lld\n", *(lli*)addr);
+        // fprintf(yyout,"%lld\n", *(lli*)addr);
         break;
     case BOOL:
         *(short *)addr = !check_eq_to_int(val,0, dtype);
-        // printf("%d\n", *(short*)addr);
+        // fprintf(yyout,"%d\n", *(short*)addr);
         break;
     default: break;
         break;
@@ -51,17 +51,17 @@ void evaluate_function(Node *node, double *val)
 {
     if (node == NULL)
         return;
-    if (node->n_type != t_FUNC)
+    if (node->n_type != t_FUNC_CALL)
         return;
 
     char *fn_name = (char *)node->val;
     if (strcmp(fn_name, "READ") == 0)
     {
-        Node* child = node->first_child;
+        Node* child = node->first_child -> first_child; // param_list -> expr
         lli* addr;
         lli val;
         int dtype = resolve_ste(child, &addr);
-        // printf("Reading data %p\n", addr);
+        // fprintf(yyout,"Reading data %p\n", addr);
         freopen("/dev/tty", "r", stdin);
         switch(dtype) {
             case INT:
@@ -82,14 +82,14 @@ void evaluate_function(Node *node, double *val)
 
         // currently assuming all functions are write functions
         double ret_val;
-        // printf("Evaluating FN\n");
-        Node *child = node->first_child;
+        // fprintf(yyout,"Evaluating FN\n");
+        Node *child = node->first_child -> first_child; // param_list -> (expr/ ste)
         while (child != NULL)
         {
             if (child->n_type == t_STR)
             {
                 String *str = evaluate_string(child);
-                printf("%s ", str->val);
+                fprintf(yyout,"%s ", str->val);
             }
             else
             {
@@ -98,13 +98,13 @@ void evaluate_function(Node *node, double *val)
                 switch (dtype)
                 {
                 case BOOL:
-                    printf("%s ", !check_eq_to_int(ret_val, 0, dtype) ? "True" : "False");
+                    fprintf(yyout,"%s ", !check_eq_to_int(ret_val, 0, dtype) ? "True" : "False");
                     break;
                 case INT:
-                    printf("%lld ", (lli)(ret_val));
+                    fprintf(yyout,"%lld ", (lli)(ret_val));
                     break;
                 case DOUBLE:
-                    printf("%f ", ret_val);
+                    fprintf(yyout,"%f ", ret_val);
                     break;
                 default: break;
                 break;
@@ -112,7 +112,7 @@ void evaluate_function(Node *node, double *val)
             }
             child = child->next;
         }
-        printf("\n");
+        fprintf(yyout,"\n");
         *val = 0;
     }
 }
@@ -130,17 +130,17 @@ void evaluate_assign(Node *node)
     Node *expr_node = var_node->next;
     lli *val_addr;
     int dtype = -1;
-    // printf("Assinging..\n");
+    // fprintf(yyout,"Assinging..\n");
     if ((dtype = resolve_ste(var_node, &val_addr)) == -1)
     {
         yyerror("Unable to load a variable\n");
     }
     double val;
     evalute_expr(expr_node->first_child, &val);
-    // printf("With %p %lf\n" ,val_addr,val);
+    // fprintf(yyout,"With %p %lf\n" ,val_addr,val);
     assign_addr(val_addr, dtype, val);
-    // printf("---\n");
-    // printf("%f %p %lld %f\n", val, val_addr, *val_addr, *(double*)val_addr);
+    // fprintf(yyout,"---\n");
+    // fprintf(yyout,"%f %p %lld %f\n", val, val_addr, *val_addr, *(double*)val_addr);
 }
 
 /**
@@ -156,10 +156,10 @@ int resolve_ste(Node *node, lli **addr)
     int dtype = -1;
     lli *to_retaddr = NULL;
     STEntry *ste = (STEntry *)node->val;
-    // printf("%s ", ste->name);
+    // fprintf(yyout,"%s ", ste->name);
     switch (ste->dtype)
     {
-    case DOUBLE:
+        case DOUBLE:
         dtype = DOUBLE;
         to_retaddr = (lli *)&(ste->value.dval);
         break;
@@ -171,10 +171,9 @@ int resolve_ste(Node *node, lli **addr)
         dtype = BOOL;
         to_retaddr = (lli *)&(ste->value.lval);
         break;
-    default: break;
-    break;
+        default: break;
     }
-    // printf("%s %d\n", ste->name, dtype);
+    // fprintf(yyout,"%s %d\n", ste->name, dtype);
     // update the addr value
     if (ste->is_array != 0)
     {
@@ -191,10 +190,10 @@ int resolve_ste(Node *node, lli **addr)
             evalute_expr(node->first_child, &index);
             pos += len * (lli)index;
             len *= arrval->arr_lengths[depth];
-            // printf("%f %d %d\n", index, depth, arrval->arr_lengths[depth]);
+            // fprintf(yyout,"%f %d %d\n", index, depth, arrval->arr_lengths[depth]);
             if (pos >= arrval->arr_max_pos)
             {
-                printf("Array index %d out of bounds(%d) for array %s\n", (int)index, arrval->arr_lengths[depth + 1], ste->name);
+                fprintf(yyout,"Array index %d out of bounds(%d) for array %s\n", (int)index, arrval->arr_lengths[depth + 1], ste->name);
                 yyerror("");
             }
             node = node->next; // goes to next EXPR
@@ -214,7 +213,7 @@ int resolve_ste(Node *node, lli **addr)
         default: break;
         }
     }
-    // printf("%s %d %p\n",ste->name, dtype, to_retaddr);
+    // fprintf(yyout,"%s %d %p\n",ste->name, dtype, to_retaddr);
     *addr = to_retaddr;
     return dtype;
 }
@@ -242,7 +241,7 @@ int evalute_expr(Node *node, double *val)
     }
     lli* addr;
     int dtype = -1;
-    // printf("Evaluating %d\n", node->n_type);
+    // fprintf(yyout,"Evaluating %d\n", node->n_type);
     switch (node->n_type)
     {
     case t_BOOLEAN:
@@ -323,7 +322,7 @@ int evalute_expr(Node *node, double *val)
         break;
     default: break;
     }
-    // printf("EXPR: %f\n", *val);
+    // fprintf(yyout,"EXPR: %f\n", *val);
     return ret_dtype;
 }
 
@@ -435,10 +434,11 @@ int evaluate_cond(Node *node)
     {
         return run(if_block->first_child);
     }
-    else
+    else if (else_block)
     {
         return run(else_block->first_child);
     }
+    return 0;
 }
 
 String *evaluate_string(Node *node)
@@ -469,14 +469,15 @@ int run(Node *node)
     switch (node->n_type)
     {
     case t_ASSIGN:
-        // printf("Evaluating ASsing\n");
+        // fprintf(yyout,"Evaluating ASsing\n");
         evaluate_assign(node);
         break;
-    case t_FUNC:
-        // printf("Evaluating Func\n");
+        case t_FUNC_CALL:
+        // fprintf(yyout,"Evaluating Func\n");
         evaluate_function(node, &val);
         break;
-    case t_COND:
+        case t_COND:
+        // fprintf(yyout,"Evaluating Cond\n");
         res = evaluate_cond(node);
         if (res != 0)
         {
