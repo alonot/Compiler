@@ -9,6 +9,8 @@ ROLL NO: 112201020
 * When compiling multiple files, then all the global sections will be stacked upon one - another and then will be packed up in the `global` function. The compiler does not garauntee any order in the stacking up of code. As long as individual code compiles, compiler will not generate any error. `It is suggested to use main function and refrain from writing any code in global section if code is scattered accross multiple files`. 
 * calling function will save the arguments directly to the stack of the callee. 
 * Stack of any function will be as follows:
+
+```
 +---------------+
 |     argn      | --|
 |     ....     |   |
@@ -28,8 +30,9 @@ ROLL NO: 112201020
 |callee saved r1|   .
 |    ......     |   .
 +---------------+
+```
 
-
+```
 Reg Name | Number | Alias | Usage / Purpose | Saved By
 $zero | $0 | constant | Always zero | —
 $at | $1 | assembler | Reserved for assembler |
@@ -67,6 +70,7 @@ $sp | $29 | stack | Stack pointer | —
 $fp | $30 | frame | Frame pointer / saved register ($s8) | Callee
 $ra | $31 | return | Return address | Caller
 
+```
 
 * The best way to evaluate the expression tree is.. to evaluate the child with greater depth. if both have same depth then first evaluate left.
 Problem is that by convention, expressions must be evaluated left to right. And expressions may contain increament operator which can impact right part of the expression.
