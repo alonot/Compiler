@@ -95,10 +95,12 @@ void parse_optional_argument(int argc, char* argv[]) {
 	int opt;
 
 	char* output_file = "a.s";
+	int verbose = 0;
 
-	while ((opt = getopt(argc, argv, "io:d:")) != -1) {
+	while ((opt = getopt(argc, argv, "ivo:d:")) != -1) {
         switch (opt) {
         case 'i': interpret = 1;  break;
+        case 'v': verbose = 1;  break;
         case 'o': 
 			output_file = optarg;
 		break;
@@ -116,7 +118,7 @@ void parse_optional_argument(int argc, char* argv[]) {
 			}
 		break;
         default:
-            fprintf(stderr, "Usage: %s [-iod] [file...]\n", argv[0]);
+            fprintf(stderr, "Usage: %s [-ivod] [file...]\n", argv[0]);
             exit(EXIT_FAILURE);
         }
     }
@@ -135,7 +137,9 @@ void parse_optional_argument(int argc, char* argv[]) {
 		exit(1);
 	}
 
-	if (debug == NULL) {
+	if (verbose == 0) {
+		debug = fopen("/dev/null", "w");
+	} else if (debug == NULL) {
 		debug = stdout;
 	}
 

@@ -22,14 +22,15 @@ Please comment it if such error occurs
 * Generates the assembly code in the current working directory
 
 ```
-{path_to_compiler(bin)}/compiler -o <output file location> -d <debug file location> <input file>
+{path_to_compiler(bin)}/compiler -o <output file location> -d <debug file location> -v <input file>
 ```
 Arguments:
 1. -o <output_file> : to specify where to output the assembly instructions.
     > If not specified, set to `a.s`
-2. -d <debug_file> : to specify where to output the compiler debugging information, syntax tree and symbol table.
+2. -v : compilers prints the debug information. Default : No debug is printed.
+3. -d <debug_file> : to specify where to output the compiler debugging information, syntax tree and symbol table, **if -v option is set**
     > If not specified, set to `stdout`
-3. <input_file> : to specify where to output the assembly instructions.
+4. <input_file> : to specify where to output the assembly instructions.
     > If not specified, set to `stdin`
 
 Example:

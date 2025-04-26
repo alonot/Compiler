@@ -14,7 +14,7 @@ build_g:
 
 run: build
 	@clear
-	./bin/compiler -o ./test.s -d ./test_dbg.txt ./test/com_test/bf_interpreter.sil
+	./bin/compiler -v -o ./test.s -d ./test_dbg.txt ./test/com_test/bf_interpreter.sil
 
 compile:
 	mips-linux-gnu-gcc-10 test.s 
