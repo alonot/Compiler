@@ -104,7 +104,7 @@ void subiu(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, lli im
         __free_regpromise(imm_reg);
     } else {
         reload_reg(rd, instr_info); reload_reg(rs1, instr_info);
-        write_instr( instr_info, "%-7s\t%s,\t%s,\t%d","subiu", rd->reg->name, rs1->reg->name, immediate);
+        write_instr( instr_info, "%-7s\t%s,\t%s,\t%d","addiu", rd->reg->name, rs1->reg->name, -immediate);
     }
 }
 
@@ -195,11 +195,7 @@ void sllv(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, RegProm
         lli immediate = (lli)*(double*)(rs1->immediate);
         RegPromise* new_reg = get_free_register_promise(instr_info);
         addiu(instr_info, new_reg, zero_reg_promise,  immediate);
-        if (rd->immediate) {
-            RegPromise* new_promise = get_free_register_promise(instr_info);
-            assign_reg_promise(rd, new_promise);
-            free(new_promise);
-        }
+        assign_reg_promise(rs1,new_reg);
         sllv(instr_info, rd,new_reg, rs2);
         __free_regpromise(new_reg);
     } else if (rs2->immediate != NULL) {
@@ -250,13 +246,8 @@ void subu(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, RegProm
         lli immediate = (lli)*(double*)(rs1->immediate);
         RegPromise* new_reg = get_free_register_promise(instr_info);
         subiu(instr_info, new_reg, zero_reg_promise,  immediate);
-        if (rd == rs1) {
-            RegPromise* new_promise = get_free_register_promise(instr_info);
-            assign_reg_promise(rd, new_promise);
-            free(new_promise);
-        }
-        subu(instr_info, rd,new_reg, rs2);
         assign_reg_promise(rs1,new_reg);
+        subu(instr_info, rd,new_reg, rs2);
         free(new_reg);
     } else if (rs2->immediate != NULL) {
         lli immediate = (lli)*(double*)(rs2->immediate);
@@ -280,13 +271,8 @@ void slt(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, RegPromi
         lli immediate = (lli)*(double*)(rs1->immediate);
         RegPromise* new_reg = get_free_register_promise(instr_info);
         addiu(instr_info, new_reg, zero_reg_promise,  immediate);
-        if (rd == rs1) {
-            RegPromise* new_promise = get_free_register_promise(instr_info);
-            assign_reg_promise(rd, new_promise);
-            free(new_promise);
-        }
-        slt(instr_info, rd,new_reg, rs2);
         assign_reg_promise(rs1,new_reg);
+        slt(instr_info, rd,new_reg, rs2);
         free(new_reg);
     } else if (rs2->immediate != NULL) {
         lli immediate = (lli)*(double*)(rs2->immediate);
@@ -310,13 +296,8 @@ void sltu(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1, RegProm
         lli immediate = (lli)*(double*)(rs1->immediate);
         RegPromise* new_reg = get_free_register_promise(instr_info);
         addiu(instr_info, new_reg, zero_reg_promise,  immediate);
-        if (rd == rs1) {
-            RegPromise* new_promise = get_free_register_promise(instr_info);
-            assign_reg_promise(rd, new_promise);
-            free(new_promise);
-        }
-        sltu(instr_info, rd,new_reg, rs2);
         assign_reg_promise(rs1,new_reg);
+        sltu(instr_info, rd,new_reg, rs2);
         free(new_reg);
     } else if (rs2->immediate != NULL) {
         lli immediate = (lli)*(double*)(rs2->immediate);

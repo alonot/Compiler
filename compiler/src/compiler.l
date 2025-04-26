@@ -174,9 +174,11 @@ int main(int argc , char* argv[]){
 		filename = "stdin";
 	}
 
-	current_symbol_table = add_sym_tables(NULL, "global", NULL);
 	labels = init_hash_map(hash_string, compare_string);
 	label_data = init_string("", 0);
+
+	current_symbol_table = add_sym_tables(NULL, "main", NULL);
+	insert(labels, (lli)current_symbol_table->name, (lli)current_symbol_table -> name);
 	yyparse();
 
 	// prog_root -> neighbour  is prog_block
@@ -209,9 +211,9 @@ int main(int argc , char* argv[]){
 	}
 	printSymbolTables(prog_root);
 
-	free_hashmap(labels);
 	free_tree(prog_root);
 	freeString(label_data);
+	free_hashmap(labels);
 	fclose(debug);
 	fclose(yyout);
 	fclose(yyin);

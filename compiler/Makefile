@@ -23,4 +23,4 @@ clean:
 	rm -f ./**/**.yy.c ./**/**.tab.* ./bin/compiler
 
 valgrind: build
-	 valgrind --leak-check=full --show-leak-kinds=all ./bin/compiler -o ./test.txt -d ./test_dbg.txt ./test/com_test/1.sil
+	 valgrind --leak-check=full --show-leak-kinds=all ./bin/compiler -o ./test.txt -d ./test_dbg.txt ./test/com_test/bf_interpreter.sil

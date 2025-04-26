@@ -32,7 +32,7 @@
 	short inside_loop = 0;
 	short curr_dtype = 0;
 	VARTYPE var_type = LOCAL;
-
+	void free_label(lli);
 	void free_string(lli val) {
 		free((char*) (val));
 	}
@@ -67,12 +67,12 @@
 %token T_INT T_BOOL T_DOUBLE 
 
 %left EQUALEQUAL LESSTHANOREQUAL GREATERTHANOREQUAL NOTEQUAL
+%left '<' '>'
 %left '+' '-'
 %left '*' '/'
 %left '%'
 %left LOGICAL_AND LOGICAL_OR
 %left LOGICAL_NOT
-%left '<' '>'
 
 %type <name> func_name
 
@@ -414,8 +414,8 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 			$$ = $1;
 		}	
 		| STR {
-			Node* node = init_node((lli)$1, (NODETYPE)(t_STR), (void (*)(lli))(freeString));
 			lli label;
+			Node* node;
 			if ((label = get(labels, (lli)($1 -> val))) == LONG_MIN || (char*)label == NULL) {
 				char* val = (char*)(calloc(6,sizeof(char)));
 				val[0]= '$';
@@ -425,6 +425,9 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 				insert(labels, (lli)($1 -> val), (lli)val);
 				write_instr_val(label_data, 0,"%s:", val);
 				write_instr_val(label_data, 1,"%-7s\t\"%s\\000\"", ".ascii", $1 -> val);
+				node = init_node((lli)$1, (NODETYPE)(t_STR), free_label);
+			} else {
+				node = init_node((lli)$1, (NODETYPE)(t_STR), NULL);
 			}
 			Node * expr_node = init_node(0, (NODETYPE)(t_EXPR), NULL);
 			add_child(expr_node, node);
@@ -432,7 +435,7 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 			$$ = expr_node;
 		}
 		| STR ',' param_list1_with_str {
-			Node* node = init_node((lli)$1, (NODETYPE)(t_STR), (void (*)(lli))(freeString));
+			Node* node;
 			lli label;
 			if (((label = get(labels, (lli)($1 -> val) )) == LONG_MIN) || ((char*)label == NULL )) {
 				char* val = (char*)(calloc(6,sizeof(char)));
@@ -443,6 +446,9 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 				insert(labels, (lli)($1 -> val), (lli)val);
 				write_instr_val(label_data, 0,"%s:", val);
 				write_instr_val(label_data, 1,"%-7s\t\"%s\\000\"", ".ascii", $1 -> val);
+				node = init_node((lli)$1, (NODETYPE)(t_STR), free_label);
+			} else {
+				node = init_node((lli)$1, (NODETYPE)(t_STR), NULL);
 			}
 			Node * expr_node = init_node(0, (NODETYPE)(t_EXPR), NULL);
 			add_child(expr_node, node);
@@ -696,7 +702,7 @@ void check_validity_ste(Node* node) {
 }
 
 Node* create_global_node(Node* body) {
-	Node* node = init_node((lli)(lli)current_symbol_table, t_FUNC_DEF, (void (*)(lli))free_symbol_table);
+	Node* node = init_node((lli)current_symbol_table, t_FUNC_DEF, (void (*)(lli))free_symbol_table);
 						
 	Node * return_node = init_node((lli)NULL, (NODETYPE)(t_FUNC_RET), NULL);
 	Node * arg_node = init_node((lli)NULL, (NODETYPE)(t_ARG_LIST), NULL);
@@ -711,6 +717,15 @@ Node* create_global_node(Node* body) {
 
 	add_all_children(node, body_node, NULL);
 	return node;
+}
+
+void free_label(lli str_lli) {
+	String* str = (String*) (str_lli);
+	char* label = get(labels, (lli)(str -> val ));
+	if (label != NULL) {
+		free(label);
+	}
+	freeString(str);
 }
 
 extern int	lineno;

@@ -79,3 +79,5 @@ Problem is that by convention, expressions must be evaluated left to right. And 
 * in expressions like (a + (a ++ - 10)). if a = 10 then c outputs  10. 
 
 * When doing function calls through register it is necessary in mips to keep the function address in $25. This is because in shared libraries or PIC code, the function prologue uses $25 to determine which module's GOT to load.
+
+* the callee (your function) must always reserve space for 4 arguments on the stack 
