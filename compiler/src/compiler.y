@@ -36,9 +36,11 @@
 	void free_string(lli val) {
 		free((char*) (val));
 	}
-%}
 
-%define parse.error verbose
+	#ifdef __BISON__
+	#define parse.error verbose
+	#endif
+%}
 
 %token BEG END
 %token DECL ENDDECL

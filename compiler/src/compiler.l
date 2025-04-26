@@ -84,17 +84,19 @@ continue			      { return CONTINUE; }
 
 %%
 #include <unistd.h>
+
+int yyparse(void);
 SymbolTable* current_symbol_table;
 Node* prog_root = NULL;
 HashMap* labels;
 String* label_data;
 FILE* debug;
+char* output_file = NULL;
 int interpret = 0;
 
 void parse_optional_argument(int argc, char* argv[]) {
 	int opt;
 
-	char* output_file = "a.s";
 	int verbose = 0;
 
 	while ((opt = getopt(argc, argv, "ivo:d:")) != -1) {
@@ -123,20 +125,7 @@ void parse_optional_argument(int argc, char* argv[]) {
         }
     }
 
-	extern FILE* yyout;
-
-	if (output_file == NULL) {
-		fprintf(stderr,"Unable to parse filename for -o\n");
-		exit(1);
-	}
-
-	yyout = fopen(output_file, "w+");
-
-	if (yyout == NULL ) {
-		fprintf(stderr, "Unable to open file %s\n", output_file);
-		exit(1);
-	}
-
+	
 	if (verbose == 0) {
 		debug = fopen("/dev/null", "w");
 	} else if (debug == NULL) {
@@ -168,7 +157,23 @@ int main(int argc , char* argv[]){
 		}
 
 		filename = argv[optind];
-		yyin = fopen(argv[optind], "r");
+		yyin = fopen(filename, "r");
+		if (output_file == NULL) {
+
+			char *slash = strrchr(filename, '/');
+			filename = (slash != NULL) ? slash + 1 : filename;
+			char* dot = strrchr(filename, '.');
+
+			if (dot != NULL) {
+				size_t len = dot - filename;
+				strncpy(output_file, filename, len);
+				output_file[len] = '\0'; 
+			} else {
+				strcpy(output_file, filename);
+			}
+
+			strcat(output_file, ".s");
+		}
 
 		if (yyin == NULL ) {
 			fprintf(stderr, "Unable to open file %s\n", argv[optind]);
@@ -177,6 +182,25 @@ int main(int argc , char* argv[]){
 	} else {
 		filename = "stdin";
 	}
+
+	if (output_file == NULL) {
+		output_file = "a.s";
+	}
+
+	extern FILE* yyout;
+
+	if (output_file == NULL) {
+		fprintf(stderr,"Unable to parse filename for -o\n");
+		exit(1);
+	}
+
+	yyout = fopen(output_file, "w+");
+
+	if (yyout == NULL ) {
+		fprintf(stderr, "Unable to open file %s\n", output_file);
+		exit(1);
+	}
+
 
 	labels = init_hash_map(hash_string, compare_string);
 	label_data = init_string("", 0);
