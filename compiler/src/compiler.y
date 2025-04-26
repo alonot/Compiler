@@ -76,8 +76,6 @@
 
 %type <name> func_name
 
-%type <str> str_expr
-
 %type <node> expr var_expr id increament_expr increament_stmt
 func_body func_call for_assign_stmt for_expr_eval
 func_stmt statement stmt_list stmt_list1  assign_stmt cond_stmt list decl 
@@ -220,6 +218,8 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 			lli label;
 			if ((label = get(labels, (lli)$2)) == LONG_MIN || (char*)label == NULL) {
 				insert(labels, (lli)$2, (lli)$2);
+			} else {
+				yyerror("Function already declared\n");
 			}
 			current_symbol_table = add_sym_tables(current_symbol_table, $2, (void (*)(char *))free);
 		} '(' arg_list ')' '{' Ldecl_sec func_body '}'	{	
@@ -454,7 +454,7 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 			add_child(expr_node, node);
 			expr_node -> depth = node -> depth + 1;
 			add_neighbour(expr_node, $3);
-			$$ = node;
+			$$ = expr_node;
 		}
 		;
 	increament_stmt : increament_expr {
@@ -640,15 +640,6 @@ param_list_with_str param_list1_with_str arg_list arg_list1 arg ret_stmt Fdef Ld
 		|	func_call		{  $$ = $1; }
 
 		;
-	str_expr :  VAR                       { 
-		String* str = init_string($1, -1);
-		$$ = str;
-	}
-	| str_expr VAR   { 
-		add_str($1, " " , 1);
-		add_str($1, $2 , -1);
-		$$ = $1;
-	};
 	
 	var_expr:	VAR	{
 					STEntry* ste = (STEntry*)value_Of(current_symbol_table, (lli)$1);
@@ -721,7 +712,7 @@ Node* create_global_node(Node* body) {
 
 void free_label(lli str_lli) {
 	String* str = (String*) (str_lli);
-	char* label = get(labels, (lli)(str -> val ));
+	char* label = (char*)get(labels, (lli)(str -> val ));
 	if (label != NULL) {
 		free(label);
 	}

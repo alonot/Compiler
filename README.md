@@ -1,12 +1,46 @@
 NAME: Priyanshu Pandey
 ROLL NO: 112201020
 
+Tools used:
+```CONFIG
+bison (GNU Bison) 3.8.2
+flex 2.6.4
+gcc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
+qemu-mips version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.6)
+mips-linux-gnu-gcc-10 (Ubuntu 10.5.0-4ubuntu2) 10.5.0
+valgrind-3.22.0
+```
 
+NOTE: For previous versions of bison, compiler.y may throw error due to 
+`%define parse.error verbose` in line 41. 
+Please comment it if such error occurs
 
-``` Rules```
-* The code written directly without any function(like in python) will be treated as to be running inside a function named `global`.
-* Starting point of program is global which calls function called `main`, if exists.
-* When compiling multiple files, then all the global sections will be stacked upon one - another and then will be packed up in the `global` function. The compiler does not garauntee any order in the stacking up of code. As long as individual code compiles, compiler will not generate any error. `It is suggested to use main function and refrain from writing any code in global section if code is scattered accross multiple files`. 
+---
+
+### Compiler:
+
+* Generates the assembly code in the current working directory
+
+```
+{path_to_compiler(bin)}/compiler -o <output file location> -d <debug file location> <input file>
+```
+Arguments:
+1. -o <output_file> : to specify where to output the assembly instructions.
+    > If not specified, set to `a.s`
+2. -d <debug_file> : to specify where to output the compiler debugging information, syntax tree and symbol table.
+    > If not specified, set to `stdout`
+3. <input_file> : to specify where to output the assembly instructions.
+    > If not specified, set to `stdin`
+
+Example:
+`./bin/compiler -o ./test.s -d ./test_dbg.txt ./test/com_test/bf_interpreter.sil`
+
+---
+
+### ``` Rules```
+* The code written directly without any function(like in python) will be treated as to be running inside a function named `main`.
+* Starting point of program is `main`.
+* `TODO`: When compiling multiple files, then all the global sections will be stacked upon one - another and then will be packed up in the `main` function. The compiler does not garauntee any order in the stacking up of code. As long as individual code compiles, compiler will not generate any error. `No user function can be named as main.`. 
 * calling function will save the arguments directly to the stack of the callee. 
 * Stack of any function will be as follows:
 

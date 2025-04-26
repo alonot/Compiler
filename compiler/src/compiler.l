@@ -136,7 +136,7 @@ void parse_optional_argument(int argc, char* argv[]) {
 	}
 
 	if (debug == NULL) {
-		debug = yyout;
+		debug = stdout;
 	}
 
 	// optind (extern) have index of first non option argument
@@ -179,6 +179,7 @@ int main(int argc , char* argv[]){
 
 	current_symbol_table = add_sym_tables(NULL, "main", NULL);
 	insert(labels, (lli)current_symbol_table->name, (lli)current_symbol_table -> name);
+	
 	yyparse();
 
 	// prog_root -> neighbour  is prog_block
@@ -214,7 +215,9 @@ int main(int argc , char* argv[]){
 	free_tree(prog_root);
 	freeString(label_data);
 	free_hashmap(labels);
-	fclose(debug);
+	if (debug != yyout) {
+		fclose(debug);
+	}
 	fclose(yyout);
 	fclose(yyin);
 

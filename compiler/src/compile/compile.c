@@ -1830,7 +1830,7 @@ int handle_function_definitions(Node* node) {
         filler_reg->immediate = (lli*)&zero;
         RegPromise* size_reg = init_reg_promise(NULL);
         double size = sp_size - extra_space - extra_reg_space - extra_fn_argument_space;
-        size_reg->immediate = &size;
+        size_reg->immediate = (lli*)&size;
         call_memset(&instructions_info, ref_reg, filler_reg, size_reg);
         // printf("%p\n",filler_reg->reg);
         __free_regpromise(size_reg);
