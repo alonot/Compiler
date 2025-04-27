@@ -40,13 +40,14 @@ Arguments:
 1. **-o <output_file>** : to specify where to output the assembly instructions.
     *   If not specified, set to `<input_filename>.s`
 
-2. **-v** : prevent printing of the debug information. Default : Debug information is **printed**.
+2. **-v** : prevent printing of the debug information. 
+    *   By default, the debug information is **printed**.
 
 3. **-d <debug_file>** : to specify where to output the compiler debugging information, syntax tree and symbol table, **`if -v option is not set`**
 
-    * If not specified, set to `stdout`
-4. **<input_file>** : to specify where to output the assembly instructions.
-    * If not specified, set to `stdin`
+    *   default is set to `stdout`
+4. **<input_file>** : to specify the location of sil program
+    *   default is set to `stdin`
 
 ### Example Run:
 Assumption: Test is saved in ./test/a.sil
