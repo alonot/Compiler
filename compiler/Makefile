@@ -26,7 +26,7 @@ crun: build
 	./bin/compiler
 
 clean:
-	rm -f ./**/**.yy.c ./**/**.tab.* ./bin/compiler ./**.s ./**.txt
+	rm -f ./**/**.yy.c ./**/**.tab.* ./bin/compiler ./**.s ./**.txt ./**.out
 
 valgrind: build_g
 	 valgrind --leak-check=full --show-leak-kinds=all ./bin/compiler -o ./test.txt -d ./test_dbg.txt ./test/com_test/bf_interpreter.sil

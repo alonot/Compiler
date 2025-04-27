@@ -90,21 +90,21 @@ SymbolTable* current_symbol_table;
 Node* prog_root = NULL;
 HashMap* labels;
 String* label_data;
-FILE* debug;
-char* output_file = NULL;
+FILE* debug = NULL;
+String* output_file = NULL;
 int interpret = 0;
 
 void parse_optional_argument(int argc, char* argv[]) {
 	int opt;
 
-	int verbose = 0;
+	int verbose = 1;
 
 	while ((opt = getopt(argc, argv, "ivo:d:")) != -1) {
         switch (opt) {
         case 'i': interpret = 1;  break;
-        case 'v': verbose = 1;  break;
+        case 'v': verbose = 0;  break;
         case 'o': 
-			output_file = optarg;
+			output_file = init_string(optarg, -1);
 		break;
         case 'd': 
 			if (optarg == NULL) {
@@ -159,20 +159,18 @@ int main(int argc , char* argv[]){
 		filename = argv[optind];
 		yyin = fopen(filename, "r");
 		if (output_file == NULL) {
-
+			output_file = init_string("", 0);
 			char *slash = strrchr(filename, '/');
 			filename = (slash != NULL) ? slash + 1 : filename;
 			char* dot = strrchr(filename, '.');
 
 			if (dot != NULL) {
 				size_t len = dot - filename;
-				strncpy(output_file, filename, len);
-				output_file[len] = '\0'; 
+				add_str(output_file, filename, len);
 			} else {
-				strcpy(output_file, filename);
+				add_str(output_file, filename, -1);
 			}
-
-			strcat(output_file, ".s");
+			add_str(output_file, ".s", 2);
 		}
 
 		if (yyin == NULL ) {
@@ -184,7 +182,7 @@ int main(int argc , char* argv[]){
 	}
 
 	if (output_file == NULL) {
-		output_file = "a.s";
+		output_file = init_string("a.s", 3);
 	}
 
 	extern FILE* yyout;
@@ -194,13 +192,16 @@ int main(int argc , char* argv[]){
 		exit(1);
 	}
 
-	yyout = fopen(output_file, "w+");
+	yyout = fopen(output_file -> val, "w+");
 
 	if (yyout == NULL ) {
-		fprintf(stderr, "Unable to open file %s\n", output_file);
+		fprintf(stderr, "Unable to open file %s\n", output_file -> val);
 		exit(1);
 	}
 
+	if (output_file != NULL) {
+		freeString(output_file);
+	}
 
 	labels = init_hash_map(hash_string, compare_string);
 	label_data = init_string("", 0);
@@ -240,6 +241,7 @@ int main(int argc , char* argv[]){
 		compile(prog_root);
 		/* fprintf(yyout,"----------------------------\nCompiled\n------------------------------------------------------\n"); */
 	}
+	fprintf(debug, "Symbol Tables\n");
 	printSymbolTables(prog_root);
 
 	free_tree(prog_root);

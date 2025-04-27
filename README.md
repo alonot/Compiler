@@ -9,6 +9,8 @@ gcc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
 qemu-mips version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.6)
 mips-linux-gnu-gcc-10 (Ubuntu 10.5.0-4ubuntu2) 10.5.0
 valgrind-3.22.0
+qemu-user
+qemu-user-static
 ```
 
 NOTE: For previous versions of bison, compiler.y may throw error due to 
@@ -17,24 +19,125 @@ Please comment it if such error occurs
 
 ---
 
-### Compiler:
+### Running the compiler:
 
-* Generates the assembly code in the current working directory
+* Generates the assembly code in the current working directory : `pwd`
 
+The current compiler covers:
+* integer
+* Expressions, increament, decreament
+* if, while, dowhile, for
+* continue, break, return
+* multi-dimension arrays
+* Function calls
+* string labels
+
+#### To run the compiler:
 ```
 {path_to_compiler(bin)}/compiler -o <output file location> -d <debug file location> -v <input file>
 ```
 Arguments:
-1. -o <output_file> : to specify where to output the assembly instructions.
-    > If not specified, set to `a.s`
-2. -v : compilers prints the debug information. Default : No debug is printed.
-3. -d <debug_file> : to specify where to output the compiler debugging information, syntax tree and symbol table, **if -v option is set**
-    > If not specified, set to `stdout`
-4. <input_file> : to specify where to output the assembly instructions.
-    > If not specified, set to `stdin`
+1. **-o <output_file>** : to specify where to output the assembly instructions.
+    *   If not specified, set to `<input_filename>.s`
 
-Example:
-`./bin/compiler -o ./test.s -d ./test_dbg.txt ./test/com_test/bf_interpreter.sil`
+2. **-v** : prevent printing of the debug information. Default : Debug information is **printed**.
+
+3. **-d <debug_file>** : to specify where to output the compiler debugging information, syntax tree and symbol table, **`if -v option is not set`**
+
+    * If not specified, set to `stdout`
+4. **<input_file>** : to specify where to output the assembly instructions.
+    * If not specified, set to `stdin`
+
+### Example Run:
+Assumption: Test is saved in ./test/a.sil
+1. Compile the file to generate assembly in `pwd` as a.s:
+
+    ```
+    ./bin/compiler ./test/a.sil
+    ```
+
+    This print the ast and symbol table in stdout.
+
+2. Compile the assembly file and run on qemu:
+
+    ```
+    mips-linux-gnu-gcc-10 ./a.s 
+	qemu-mips -L /usr/mips-linux-gnu/ ./a.out
+    ```
+
+Example Program:
+```
+
+decl
+  integer a, b;
+enddecl
+
+begin
+  read(a, b);
+  write(a, b);
+
+  read(a);
+  write(a, b); // Make sure b is not changed
+
+  read(b);
+  write(a, b); // Make sure a is not changed
+end
+
+// 1
+// 2
+// 1 2
+// 4
+// 4 2
+// 3
+// 4 3
+```
+AST and Symbol table:
+```
+HerePROG
+        |-FUNC_DEF(main)
+                |-FUNC_RET
+                |-ARG_LIST
+                |-DECL
+                        |-KEYWORD(INTEGER)
+                                |-(int)(a)
+                                |-(int)(b)
+                |-FUNC_BODY
+                        |-CALL(read)
+                                |-PARAM_LIST
+                                        |-EXPR(1)
+                                                |-(int)(a)
+                                        |-EXPR(1)
+                                                |-(int)(b)
+                        |-CALL(write)
+                                |-PARAM_LIST
+                                        |-EXPR(1)
+                                                |-(int)(a)
+                                        |-EXPR(1)
+                                                |-(int)(b)
+                        |-CALL(read)
+                                |-PARAM_LIST
+                                        |-EXPR(1)
+                                                |-(int)(a)
+                        |-CALL(write)
+                                |-PARAM_LIST
+                                        |-EXPR(1)
+                                                |-(int)(a)
+                                        |-EXPR(1)
+                                                |-(int)(b)
+                        |-CALL(read)
+                                |-PARAM_LIST
+                                        |-EXPR(1)
+                                                |-(int)(b)
+                        |-CALL(write)
+                                |-PARAM_LIST
+                                        |-EXPR(1)
+                                                |-(int)(a)
+                                        |-EXPR(1)
+                                                |-(int)(b)
+Symbol Table
+|         a |                  INT       | 0
+|         b |                  INT       | 0
+```
 
 ---
 
