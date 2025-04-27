@@ -69,7 +69,7 @@ continue			      { return CONTINUE; }
 
 {letter}({letter}|{digit})*	{ yylval.name = strdup(yytext);return VAR; /* variable name */}
 [-+*/=()><;,\{\}\[\]\%]         { return yytext[0]; }
-("//".*\n)							{}
+("//"[^\n]*)							{}
 \"([^\"\\]|\\.)*\"                             { 	
 	yytext[yyleng - 1] = '\0';
 	str = init_string(yytext + 1, yyleng - 2);
@@ -223,6 +223,8 @@ int main(int argc , char* argv[]){
 	prog_root -> next = global_body;
 	prog_root = tmp;
 	global_decl -> next = NULL;
+
+	
 
 	printTreeIdent(prog_root);
 	fflush(debug);

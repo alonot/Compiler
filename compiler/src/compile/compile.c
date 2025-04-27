@@ -101,7 +101,10 @@ void __write_instr(Instructions_info* instr_info, const char* format, ...) {
 void reload_reg(RegPromise* reg_promise, Instructions_info* instr_info) {
     if (reg_promise->immediate != NULL) {
         // immediate
-        yyerror("Got immediate for reloading\n");
+        RegPromise* new_reg = get_free_register_promise(instr_info);
+        addiu(instr_info,new_reg, zero_reg_promise, (lli)*((double*)(reg_promise->immediate)));
+        assign_reg_promise(reg_promise, new_reg);
+        free(new_reg);
         return;
     }
     if (reg_promise->label != NULL) {
@@ -135,7 +138,7 @@ void reload_reg(RegPromise* reg_promise, Instructions_info* instr_info) {
 
 
 void reload_reg_withoffset(RegPromise* reg, Instructions_info* instr_info) {
-    if (reg == NULL || reg->immediate) return;
+    if (reg == NULL) return;
     reload_reg(reg,instr_info);
     if (reg->reg->offset != NO_ENTRY) {
         loadw(instr_info,reg, reg);
@@ -853,17 +856,7 @@ int handle_assignment(Node* node, SymbolTable* symt, Instructions_info* instruct
     RegPromise* expr_promise = get_expression(expr_node->first_child, symt, instructions_info);
     // printf("Expr %p\n", expr_promise->ste);
     // This is important in case it uses the reference register then ste ref offset will be overriden
-    if (expr_promise->immediate != NULL) {
-        // this is expression not a register
-        RegPromise* new_reg = get_free_register_promise(instructions_info);
-        // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
-        addiu(instructions_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
-        // printf("pp\n");
-        __free_regpromise(expr_promise);
-        expr_promise = new_reg;
-    } else {
-        reload_reg_withoffset(expr_promise,instructions_info);
-    }
+    reload_reg_withoffset(expr_promise,instructions_info);
     // this promise definite has a register or immediate
     if (expr_promise == NULL) {
         yyerror("No expression received\n");
@@ -1007,11 +1000,8 @@ void scaffold_for_read_write(Node* node, SymbolTable* symt, Instructions_info* i
     while (params != NULL) {
         RegPromise* reg = get_expression(params->first_child, symt, instr_info);
         if (read == 0) {
-            // printf("%d", (reg->label == NULL));
             reload_reg(reg,instr_info);
-        } else {
-            
-        }
+        } 
         enqueue_queue(param_queue, (lli)reg);
         params = params->next;
     }
@@ -1065,6 +1055,7 @@ void scaffold_for_read_write(Node* node, SymbolTable* symt, Instructions_info* i
     int start = store_argument(instr_info,reg, 0, 0, -1);
     __free_regpromise(reg);
     start = store_arguments(instr_info, param_queue, start, 11, read);
+    // printf("reg%d\n", instr_info->gen_code);
     instr_info->call_window_size =  max(start, instr_info->call_window_size);
     free_queue(param_queue);
 }
@@ -1156,15 +1147,7 @@ int handle_function_return(Node* node, SymbolTable* symt, Instructions_info* ins
     if (expr_promise == NULL) {
         yyerror("No expression received\n");
     }
-    if (expr_promise->immediate != NULL) {
-        // this is expression not a register
-        RegPromise* new_reg = get_free_register_promise(instr_info);
-        addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
-        __free_regpromise(expr_promise);
-        expr_promise = new_reg;
-    } else {
-        reload_reg_withoffset(expr_promise,instr_info);
-    }
+    reload_reg_withoffset(expr_promise,instr_info);
     if (expr_promise->reg != registers[14]) {
         RegPromise* v0_promise = get_specific_register_promise(instr_info,14); // v0
         if (expr_promise->reg->offset == NO_ENTRY) {
@@ -1202,17 +1185,7 @@ int handle_cond_stmt(Node* node, SymbolTable* symt, Instructions_info* instr_inf
     
     RegPromise* expr_promise = get_expression(expr_node->first_child, symt, instr_info);
 
-    if (expr_promise->immediate != NULL) {
-        // this is expression not a register
-        RegPromise* new_reg = get_free_register_promise(instr_info);
-        // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
-        addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
-        // printf("pp\n");
-        __free_regpromise(expr_promise);
-        expr_promise = new_reg;
-    } else {
-        reload_reg_withoffset(expr_promise,instr_info);
-    }
+    reload_reg_withoffset(expr_promise,instr_info);
 
 
     instr_info->label_count ++;
@@ -1273,17 +1246,17 @@ int handle_while_stmt(Node* node, SymbolTable* symt, Instructions_info* instr_in
     RegPromise* expr_promise = get_expression(cond_node->first_child, symt, instr_info);
     if (expr_promise != NULL) {
         // code to check for end
-        if (expr_promise->immediate != NULL) {
-            // this is expression not a register
-            RegPromise* new_reg = get_free_register_promise(instr_info);
-            // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
-            addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
-            // printf("pp\n");
-            __free_regpromise(expr_promise);
-            expr_promise = new_reg;
-        } else {
-            reload_reg_withoffset(expr_promise,instr_info);
-        }
+        // if (expr_promise->immediate != NULL) {
+        //     // this is expression not a register
+        //     RegPromise* new_reg = get_free_register_promise(instr_info);
+        //     // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
+        //     addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
+        //     // printf("pp\n");
+        //     __free_regpromise(expr_promise);
+        //     expr_promise = new_reg;
+        // } else {
+        // }
+        reload_reg_withoffset(expr_promise,instr_info);
         // if result was false . i.e. equation == 0
         beq(instr_info, expr_promise, zero_reg_promise, end_label->val);
         __free_regpromise(expr_promise);
@@ -1344,17 +1317,7 @@ int handle_do_while_stmt(Node* node, SymbolTable* symt, Instructions_info* instr
     __write_instr(instr_info, "%s:\n", loop_check_label->val);
     RegPromise* expr_promise = get_expression(cond_node->first_child, symt, instr_info);
     if (expr_promise != NULL) {
-        // code to check for end
-        if (expr_promise->immediate != NULL) {
-            // this is expression not a register
-            RegPromise* new_reg = get_free_register_promise(instr_info);
-            // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
-            addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
-            __free_regpromise(expr_promise);
-            expr_promise = new_reg;
-        } else {
-            reload_reg_withoffset(expr_promise,instr_info);
-        }
+        reload_reg_withoffset(expr_promise,instr_info);
         // if result was false . i.e. equation == 0
         beq(instr_info, expr_promise, zero_reg_promise, end_label->val);
         __free_regpromise(expr_promise);
@@ -1413,18 +1376,7 @@ int handle_for_stmt(Node* node, SymbolTable* symt, Instructions_info* instr_info
     
     RegPromise* expr_promise = get_expression(cond_node->first_child, symt, instr_info);
     if (expr_promise != NULL) {
-        // code to check for end
-        if (expr_promise->immediate != NULL) {
-            // this is expression not a register
-            RegPromise* new_reg = get_free_register_promise(instr_info);
-            // printf("pp %lld\n", (lli)*((double*)(expr_promise->immediate)));
-            addiu(instr_info, new_reg, zero_reg_promise, (lli)*((double*)(expr_promise->immediate)));
-            // printf("pp\n");
-            __free_regpromise(expr_promise);
-            expr_promise = new_reg;
-        } else {
-            reload_reg_withoffset(expr_promise,instr_info);
-        }
+        reload_reg_withoffset(expr_promise,instr_info);
         // if result was false . i.e. equation == 0
         beq(instr_info, expr_promise, zero_reg_promise, end_label->val);
         __free_regpromise(expr_promise);

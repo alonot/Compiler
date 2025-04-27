@@ -14,12 +14,12 @@ build_g:
 
 run: build
 	@clear
-	./bin/compiler -v -o ./test.s -d ./test_dbg.txt ./test/com_test/bf_interpreter.sil
+	./bin/compiler -o ./test.s -d ./test_dbg.txt ./test/com_test/bf_interpreter.sil
 
 compile:
 	mips-linux-gnu-gcc-10 test.s 
 	qemu-mips -L /usr/mips-linux-gnu/ ./a.out 
-	echo $?
+	@echo $?
 
 crun: build
 	clear
