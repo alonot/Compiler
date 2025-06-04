@@ -31,7 +31,7 @@
 	int i;	
 	short inside_loop = 0;
 	short curr_dtype = 0;
-	VARTYPE var_type = LOCAL;
+	VARTYPE var_type = GLOBAL;
 	void free_label(lli);
 	void free_string(lli val) {
 		free((char*) (val));

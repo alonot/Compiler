@@ -135,14 +135,6 @@ void parse_optional_argument(int argc, char* argv[]) {
 	// optind (extern) have index of first non option argument
 }
 
-Node* call_main() {
-	Node * node = init_node((lli)"main", (NODETYPE)(t_FUNC_CALL), NULL);
-	Node * param_node = init_node((lli)NULL, (NODETYPE)(t_PARAM_LIST), NULL);
-	add_child(node, param_node);
-	return node;	
-}
-
-
 int main(int argc , char* argv[]){
 	parse_optional_argument(argc, argv);
 
@@ -211,25 +203,25 @@ int main(int argc , char* argv[]){
 	
 	yyparse();
 
+
 	// prog_root -> neighbour  is prog_block
 	// prog_block -> first_child is "global"
 	// global -> 4th child is func_body
-	Node* global = prog_root->next->first_child->first_child;
-	Node* global_body = global->next->next->next;
-	/* add_child(global_body, call_main()); */
-
+	/* Node* global = prog_root->next->first_child->first_child;
+	Node* global_body = global->next->next->next; */
+/* 
 	Node* global_decl = global->next->next;
 	global->next->next = prog_root;
 	Node* tmp = prog_root -> next;
 	prog_root -> next = global_body;
 	prog_root = tmp;
-	global_decl -> next = NULL;
+	global_decl -> next = NULL; */
 
 	
 
 	printTreeIdent(prog_root);
 	fflush(debug);
-	free(global_decl);
+	/* free(global_decl); */
 
 	instr_out("%s\n", label_data->val);
 	if (interpret == 1) {
@@ -242,7 +234,7 @@ int main(int argc , char* argv[]){
 		/* fprintf(yyout,"----------------------------\nCompiled\n------------------------------------------------------\n"); */
 	}
 	fprintf(debug, "Symbol Tables\n");
-	printSymbolTables(prog_root);
+	printSymbolTables(prog_root->next);
 
 	free_tree(prog_root);
 	freeString(label_data);

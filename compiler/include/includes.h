@@ -1,3 +1,4 @@
+#pragma once
 
 #include "string.h"
 #include "limits.h"
@@ -312,7 +313,8 @@ typedef enum _ste_dtype {
 
 typedef enum _ste_var_type {
     ARG,
-    LOCAL
+    LOCAL,
+    GLOBAL
 } VARTYPE;
 
 typedef struct _array_info {

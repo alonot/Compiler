@@ -378,7 +378,16 @@ void mips_div(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1) {
 
 void loadw(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1) {
     reload_reg(rd, instr_info); reload_reg(rs1, instr_info);
-    __loadw(instr_info, rd->reg, rs1->reg);
+    if (rs1->reg->offset != NO_ENTRY && (rs1 != fp_reg_promise || rs1 != sp_reg_promise || rs1 != gp_reg_promise )) {
+        // then load the value through s0
+        RegPromise* s0_reg_promise = get_specific_register_promise(instr_info,S0_loc);
+        move(instr_info, s0_reg_promise, rs1); // just move the register value to s0
+        s0_reg_promise->reg->offset = rs1->reg->offset; // load the value from the offset
+        __loadw(instr_info, rd->reg, s0_reg_promise->reg);
+        __free_regpromise(s0_reg_promise);
+    } else {
+        __loadw(instr_info, rd->reg, rs1->reg);
+    }
 }
 
 void move(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1) {
@@ -388,7 +397,16 @@ void move(Instructions_info* instr_info,RegPromise* rd, RegPromise* rs1) {
 
 void storew(Instructions_info* instr_info,RegPromise* rs1, RegPromise* rs2) {
     reload_reg(rs1, instr_info); reload_reg(rs2, instr_info);
-    __storew(instr_info, rs1->reg, rs2->reg);
+    if (rs2->reg->offset != NO_ENTRY && (rs2 != fp_reg_promise || rs2 != sp_reg_promise || rs2 != gp_reg_promise )) {
+        // then store the value through s0
+        RegPromise* s0_reg_promise = get_specific_register_promise(instr_info,S0_loc);
+        move(instr_info, s0_reg_promise, rs2); // just move the register value to s0
+        s0_reg_promise->reg->offset = rs2->reg->offset; // load the value from the offset
+        __storew(instr_info, rs1->reg, s0_reg_promise->reg);
+        __free_regpromise(s0_reg_promise);
+    } else {
+        __storew(instr_info, rs1->reg, rs2->reg);
+    }
 }
 
 void beq(Instructions_info* instr_info,RegPromise* rs1, RegPromise* rs2, char* label) {

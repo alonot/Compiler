@@ -1,3 +1,4 @@
+#pragma once
 
 /******************Compile*********************** */
 
@@ -16,6 +17,7 @@ typedef struct __reg {
     char* name;
     lli offset; // set to NO_ENTRY if value is directly in the register, else give offset to actual address. 
     int occupied; // whether occupied or not. 
+    int idx;
     RegPromise* reg_promise;
 } Register;
 
@@ -63,6 +65,13 @@ RegPromise* get_free_register_promise(Instructions_info* instructions_info);
 
 RegPromise* init_reg_promise(Register* reg);
 
+void reload_reg_withoffset(RegPromise* reg, Instructions_info* instr_info);
+
+/**
+ * Frees if required and return the same register
+ */
+RegPromise* get_specific_register_promise(Instructions_info* instructions_info, int pos);
+
 
 /************************************************ */
 #define instr_out(fmt, ...) fprintf(yyout, "\t" fmt "\n", ##__VA_ARGS__)
@@ -82,9 +91,14 @@ RegPromise* init_reg_promise(Register* reg);
 extern FILE* yyout;
 extern FILE* debug;
 
-extern Register* zero_reg, * sp_reg, * fp_reg;
-extern RegPromise* zero_reg_promise, * sp_reg_promise, * fp_reg_promise;
+extern Register* zero_reg, * sp_reg, * fp_reg, *ra_reg, *gp_reg;
+extern RegPromise* zero_reg_promise, * sp_reg_promise, * fp_reg_promise, * ra_reg_promise, * gp_reg_promise;
 extern Queue* register_usage_queue;
+extern Queue* ste_register_promises;
+
+extern Register* registers[32];
+extern Register* fregisters[32]; 
+#define S0_loc 23
 
 #endif
 
@@ -168,3 +182,7 @@ void load_label(Instructions_info* instr_info, RegPromise* rd, char* label);
 int handle_statement(Node* node, SymbolTable* symt, Instructions_info* instructions_info);
 
 int handle_statements(Node* node, SymbolTable* symt, Instructions_info* instructions_info);
+
+void free_registers_struct();
+
+void initialize_registers();
